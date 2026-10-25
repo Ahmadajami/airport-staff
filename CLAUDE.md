@@ -8,13 +8,13 @@
 - Pilot runs alongside Odoo; cutover only after the acceptance checklist (§11) passes, including tested backups/recovery.
 - MVP = Phases 1–3 below. Phases 4–5 must not be built early.
 
-| Phase | Scope | Priority |
-|---|---|---|
-| 1 Foundation & data import | Auth + 5 roles, staff directory & teams, flight DB, CSV/Excel import preview, audit trail, Odoo reconciliation | MVP |
-| 2 Flights & assignments | Arrivals/departures list + day timeline, create/edit/reschedule/cancel flights, handling windows & required staff counts, assign teams/individuals, server-side overlap blocking | MVP |
-| 3 Attendance & control dashboard | Check-in/out, breaks, absences, scheduled vs. available staff, coverage dashboard, alerts for missing staff / uncovered flights, daily report | MVP |
-| 4 Roster automation & integrations | Recurring shifts, 12-on/24-off rosters, flight feed sync + stale-data warnings, live updates, overtime | Later |
-| 5 Optimization & forecasting | Demand forecasts, staffing model comparison, assignment recommendations, KPIs, PDF/Excel reports | Later |
+| Phase                              | Scope                                                                                                                                                                            | Priority |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 1 Foundation & data import         | Auth + 5 roles, staff directory & teams, flight DB, CSV/Excel import preview, audit trail, Odoo reconciliation                                                                   | MVP      |
+| 2 Flights & assignments            | Arrivals/departures list + day timeline, create/edit/reschedule/cancel flights, handling windows & required staff counts, assign teams/individuals, server-side overlap blocking | MVP      |
+| 3 Attendance & control dashboard   | Check-in/out, breaks, absences, scheduled vs. available staff, coverage dashboard, alerts for missing staff / uncovered flights, daily report                                    | MVP      |
+| 4 Roster automation & integrations | Recurring shifts, 12-on/24-off rosters, flight feed sync + stale-data warnings, live updates, overtime                                                                           | Later    |
+| 5 Optimization & forecasting       | Demand forecasts, staffing model comparison, assignment recommendations, KPIs, PDF/Excel reports                                                                                 | Later    |
 
 ## 2. Commands (pnpm only)
 
@@ -35,20 +35,22 @@ pnpm drizzle-kit generate --custom --name=<name>   # empty migration for hand-wr
 
 ## 3. Stack & conventions (non-default — read carefully)
 
-| Area | Rule |
-|---|---|
-| Framework | **SvelteKit 3** + **Svelte 5**, runes forced for all project files (`vite.config.ts`). Use `$state`, `$derived`, `$effect`, `$props`; no `export let`, no stores in new code. |
-| Imports | Alias is **`#lib`** (Node subpath imports in `package.json`), **not `$lib`**. e.g. `import { cn } from '#lib/utils.js'`. |
-| Env vars | Declare in `src/env.ts` via `defineEnvVars`, read from **`$app/env/private`**. Add every new var to `.env.example` too. Never commit `.env`. |
-| DB | Drizzle ORM 0.45 + `drizzle-orm/neon-http` + Neon Postgres (`src/lib/server/db/index.ts`). See §7. |
-| Forms | `sveltekit-superforms` v3 with the **`zod4`** adapter (`sveltekit-superforms/adapters`), `zod` v4 (`z.email()`, not `z.string().email()`). Keep the schema in a sibling `schema.ts`; validate again in the action. |
-| UI | Tailwind CSS 4 (`src/routes/layout.css`), shadcn-svelte (style `lyra`) in `#lib/components/ui`. Add components with `pnpm dlx shadcn-svelte@latest add <name>`. Use `cn()` from `#lib/utils.js`. |
-| Icons | **phosphor-svelte** (the `components.json` icon library). Lucide is installed but only used in the scaffold header; don't add new lucide usages. |
-| Feedback | `svelte-sonner` toasts (`<Toaster />` is in the root layout); `mode-watcher` for dark mode. |
-| Dates | `@internationalized/date` for timezone-aware display/parsing. |
-| i18n | Paraglide JS: `en` (base) + `ar`. Messages in `messages/{en,ar}.json`; use `m.key()` from `#lib/paraglide/messages.js` and `localizeHref()` for links. `src/lib/paraglide/` is generated — never edit it. |
-| Deploy | `@sveltejs/adapter-vercel` → serverless functions. No long-lived processes or WebSocket servers. |
-| Svelte MCP | For every `.svelte` / `.svelte.ts` file created or edited, run the Svelte MCP `svelte-autofixer` until it reports no issues. Use `get-documentation` for SvelteKit 3 / Svelte 5 APIs instead of guessing. |
+| Area       | Rule                                                                                                                                                                                                                                                                                                                                                                                         |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework  | **SvelteKit 3** + **Svelte 5**, runes forced for all project files (`vite.config.ts`). Use `$state`, `$derived`, `$effect`, `$props`; no `export let`, no stores in new code.                                                                                                                                                                                                                |
+| Imports    | Alias is **`#lib`** (Node subpath imports in `package.json`), **not `$lib`**. e.g. `import { cn } from '#lib/utils.js'`.                                                                                                                                                                                                                                                                     |
+| Env vars   | Declare in `src/env.ts` via `defineEnvVars`, read from **`$app/env/private`**. Add every new var to `.env.example` too. Never commit `.env`.                                                                                                                                                                                                                                                 |
+| DB         | Drizzle ORM 0.45 + `drizzle-orm/neon-http` + Neon Postgres (`src/lib/server/db/index.ts`). See §7.                                                                                                                                                                                                                                                                                           |
+| Forms      | `sveltekit-superforms` v3 with the **`zod4`** adapter (`sveltekit-superforms/adapters`), `zod` v4 (`z.email()`, not `z.string().email()`). Keep the schema in a sibling `schema.ts`; validate again in the action.                                                                                                                                                                           |
+| UI         | Tailwind CSS 4 (`src/routes/layout.css`), shadcn-svelte (style `lyra`) in `#lib/components/ui`. Add components with `pnpm dlx shadcn-svelte@latest add <name>`. Use `cn()` from `#lib/utils.js`.                                                                                                                                                                                             |
+| Cards      | Use `Card.*` from `#lib/components/ui/card` for any card/panel. **Never change a card's border**: no `border`/`ring`/`rounded` overrides on `Card.Root`, and no hand-rolled `border bg-card` look-alikes.                                                                                                                                                                                    |
+| Icons      | **phosphor-svelte** (the `components.json` icon library), imported per icon: `import ListIcon from 'phosphor-svelte/lib/ListIcon'`. Don't add new lucide usages.                                                                                                                                                                                                                             |
+| Feedback   | `svelte-sonner` toasts (`<Toaster />` is in the root layout); `mode-watcher` (`<ModeWatcher />` in the root layout) for dark mode.                                                                                                                                                                                                                                                           |
+| Dates      | `@internationalized/date` for timezone-aware display/parsing.                                                                                                                                                                                                                                                                                                                                |
+| i18n       | Paraglide JS: `en` (base) + `ar`, strategy `['url', 'cookie', 'baseLocale']` (`/ar/...` prefix). Messages in `messages/{en,ar}.json`; use `m.key()` from `#lib/paraglide/messages.js`. `src/lib/paraglide/` is generated — never edit it.                                                                                                                                                    |
+| Links      | Internal links are **always** `localizedHref('/route')` or `localizedHref('/route', 'ar')` from `#lib/i18n.js`, which returns `localizeHref(resolve(url), { locale })`. Never a plain `href="/x"` or `resolve()` alone (drops `/ar`). It accepts param-free routes only; dynamic routes (`/flights/[id]`) need a params overload when added. `paths.relative` is `false` so it works in SSR. |
+| Deploy     | `@sveltejs/adapter-vercel` → serverless functions. No long-lived processes or WebSocket servers.                                                                                                                                                                                                                                                                                             |
+| Svelte MCP | For every `.svelte` / `.svelte.ts` file created or edited, run the Svelte MCP `svelte-autofixer` until it reports no issues. Use `get-documentation` for SvelteKit 3 / Svelte 5 APIs instead of guessing.                                                                                                                                                                                    |
 
 ## 4. Directory layout (current + planned)
 
@@ -63,7 +65,7 @@ src/lib/components/ui/           shadcn-svelte components (generated, edit spari
 src/lib/app/                     app-specific components (layout shell, etc.)
 src/routes/(app)/                planned — authenticated area; +layout.server.ts enforces session
   flights/ staff/ teams/ assignments/ attendance/ dashboard/ reports/ imports/ admin/
-src/routes/login/                login page
+src/routes/login/                planned — real login (removed scaffold demo)
 messages/                        en.json, ar.json
 ```
 
@@ -75,13 +77,13 @@ messages/                        en.json, ar.json
 
 ### Roles (seeded keys)
 
-| Key | Name | Responsibility | Typical access |
-|---|---|---|---|
-| `admin` | Admin | User accounts, role permissions, settings, operational configuration | Users & roles, configuration, all modules, audit logs |
-| `operations_manager` | Operations Manager | Oversees operations, flight schedules, staffing rules, roster planning, approves plans | Flights, workforce, rosters, assignments, reports, staffing scenarios |
-| `supervisor` | Supervisor | Monitors teams, confirms attendance, oversees flight handling, reports shortages/incidents | Team schedules, attendance, assigned flights, alerts |
-| `dispatcher` | Dispatcher | Maintains flight info, assigns staff, responds to delays/conflicts | Flight board, availability, assignments, rescheduling, live alerts |
-| `viewer` | Viewer | Read-only dashboards/reports | Read-only within the scope an admin grants |
+| Key                  | Name               | Responsibility                                                                             | Typical access                                                        |
+| -------------------- | ------------------ | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| `admin`              | Admin              | User accounts, role permissions, settings, operational configuration                       | Users & roles, configuration, all modules, audit logs                 |
+| `operations_manager` | Operations Manager | Oversees operations, flight schedules, staffing rules, roster planning, approves plans     | Flights, workforce, rosters, assignments, reports, staffing scenarios |
+| `supervisor`         | Supervisor         | Monitors teams, confirms attendance, oversees flight handling, reports shortages/incidents | Team schedules, attendance, assigned flights, alerts                  |
+| `dispatcher`         | Dispatcher         | Maintains flight info, assigns staff, responds to delays/conflicts                         | Flight board, availability, assignments, rescheduling, live alerts    |
+| `viewer`             | Viewer             | Read-only dashboards/reports                                                               | Read-only within the scope an admin grants                            |
 
 These descriptions are **proposed defaults**. The final permission matrix is still to be agreed with the ops team (§10), which is why it lives in the DB (§7).
 
@@ -108,28 +110,31 @@ These descriptions are **proposed defaults**. The final permission matrix is sti
 6. **Never hard-delete operational records.** Flights → `status = 'cancelled'`, staff/users → `active = false`, assignments → `status = 'cancelled'`. History must reconcile for daily reports.
 7. **Keep out of the MVP** (from the brief):
 
-| Feature | Why defer | Build when |
-|---|---|---|
-| AI staffing forecasts | Needs clean historical flights, demand, actual work records | Core data reliable, enough history |
-| Automatic roster optimization | Rest rules, shift policy, constraints not yet agreed | Manual rosters & availability rules validated |
-| Multiple live flight APIs | Integration complexity delays core workflow | Start with validated import; add one verified source at a time |
-| Advanced productivity scoring | Misleading without consistent handling-time data | Handling & attendance data reconciled |
+| Feature                       | Why defer                                                   | Build when                                                     |
+| ----------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------- |
+| AI staffing forecasts         | Needs clean historical flights, demand, actual work records | Core data reliable, enough history                             |
+| Automatic roster optimization | Rest rules, shift policy, constraints not yet agreed        | Manual rosters & availability rules validated                  |
+| Multiple live flight APIs     | Integration complexity delays core workflow                 | Start with validated import; add one verified source at a time |
+| Advanced productivity scoring | Misleading without consistent handling-time data            | Handling & attendance data reconciled                          |
 
 8. **Live updates.** The brief mentions Socket.IO for Phase 4, but Vercel serverless cannot host it. In the MVP use `invalidate()`/`invalidateAll()` polling or SSE. A realtime service would need a separate host, so ask the user before adding one.
 
 ## 7. Database (Drizzle)
 
 ### Current state
+
 - `drizzle.config.ts`: `dialect: 'postgresql'`, `strict: true`, schema at `./src/lib/server/db/schema.ts`. `DATABASE_URL` must be set to run any drizzle-kit command.
 - `src/lib/server/db/index.ts`: `drizzle(neon(DATABASE_URL), { schema })` over **neon-http**.
 - `schema.ts` contains only the scaffold demo `task` table. Delete it in the first real migration.
 
 ### neon-http constraints
+
 - **No interactive transactions** (`db.transaction(async tx => …)` is unsupported). Use **`db.batch([q1, q2, …])`**, which runs atomically in one transaction.
 - Logic that must read and then write atomically (overlap checks) relies on **DB constraints**, not app-level checks.
 - If a feature truly needs interactive transactions, propose switching that path to `drizzle-orm/neon-serverless` (WebSocket `Pool`, created per request) and ask first.
 
 ### Conventions
+
 - Split the schema into `src/lib/server/db/schema/{auth,rbac,workforce,flights,assignments,attendance,imports,audit,settings}.ts` with `schema/index.ts` re-exporting everything. Update `drizzle.config.ts` `schema` to `./src/lib/server/db/schema` when doing so.
 - Name tables and columns explicitly in snake_case, singular: `pgTable('flight', { scheduledAt: timestamp('scheduled_at', …) })`.
 - IDs: `uuid('id').primaryKey().defaultRandom()` for domain tables. FKs to `user.id` use the type the auth library dictates (Better Auth uses `text`).
@@ -141,28 +146,29 @@ These descriptions are **proposed defaults**. The final permission matrix is sti
 
 ### Entities (Phases 1–3)
 
-| Area | Table | Key columns / constraints |
-|---|---|---|
-| Auth | `user`, `session` (+ `account` if needed) | Shape depends on the auth decision (§8). `user` adds `role_id` → `role`, `active` bool |
-| RBAC | `role` | `key` unique (5 seeded keys from §5), `name_en`, `name_ar` |
-| | `permission` | `key` unique, e.g. `flight.read`, `flight.write`, `assignment.write`, `attendance.record`, `staff.write`, `import.run`, `report.read`, `user.manage`, `settings.manage`, `audit.read` |
-| | `role_permission` | PK (`role_id`, `permission_id`) |
-| Workforce | `staff_function` | Configurable lookup (ramp, baggage, check-in, gate…): `key`, `name_en`, `name_ar` |
-| | `team` | `name`, `supervisor_staff_id` → `staff`, `active` |
-| | `staff` | `employee_no` unique, `full_name`, `full_name_ar`, `phone`, `function_id`, `team_id`, `user_id` nullable unique, `active`, `odoo_id` nullable unique |
-| | `shift` | `staff_id`, `starts_at`, `ends_at`, `status`, check `ends_at > starts_at`. Manual/imported in the MVP, generated in Phase 4 |
-| Flights | `flight` | `airline_code`, `flight_no`, `direction` enum (`arrival`/`departure`), `origin`, `destination` (IATA), `scheduled_at`, `estimated_at`, `actual_at`, `status` enum (`scheduled`/`delayed`/`boarding`/`departed`/`arrived`/`cancelled`/`diverted`), `stand`, `gate`, `aircraft_type`, `handling_starts_at`, `handling_ends_at`, `source` enum (`manual`/`import`/`feed`), `external_ref`. Unique (`source`, `external_ref`); index `scheduled_at` |
-| | `handling_window_rule` | `direction`, optional `aircraft_category`, `minutes_before`, `minutes_after`. Computes the default window; per-flight overrides are audited |
-| | `flight_staffing_requirement` | `flight_id`, `function_id`, `required_count` (> 0); unique (`flight_id`, `function_id`) |
-| Assignments | `assignment` | `flight_id`, `staff_id`, `team_id` nullable, `starts_at`, `ends_at` (copied from the handling window), `status` enum (`assigned`/`cancelled`/`completed`), `assigned_by`, `override_reason`. Indexes `flight_id`, (`staff_id`, `starts_at`) |
-| Attendance | `attendance_event` | **Append-only**: `staff_id`, `shift_id` nullable, `type` enum (`check_in`/`check_out`/`break_start`/`break_end`), `occurred_at`, `recorded_by`, `note`. Index (`staff_id`, `occurred_at`). Corrections are new events with a reason, never edits |
-| | `absence` | `staff_id`, `starts_at`, `ends_at`, `type` enum (`sick`/`leave`/`no_show`/`other`), `reason`, `recorded_by` |
-| Imports | `import_batch` | `kind` (`staff`/`flights`), `file_name`, `status` enum (`previewed`/`committed`/`failed`), `created_by`, row counts |
-| | `import_row` | `batch_id`, `row_no`, `raw` jsonb, `parsed` jsonb, `errors` jsonb, `action` (`create`/`update`/`skip`), `target_id`. Drives import preview and Odoo reconciliation |
-| Audit | `audit_log` | **Insert-only**: `actor_user_id`, `action`, `entity_type`, `entity_id`, `before` jsonb, `after` jsonb, `reason`, `created_at`. Indexes (`entity_type`, `entity_id`), `created_at` |
-| Settings | `app_setting` | `key` PK, `value` jsonb |
+| Area        | Table                                     | Key columns / constraints                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ----------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth        | `user`, `session` (+ `account` if needed) | Shape depends on the auth decision (§8). `user` adds `role_id` → `role`, `active` bool                                                                                                                                                                                                                                                                                                                                                          |
+| RBAC        | `role`                                    | `key` unique (5 seeded keys from §5), `name_en`, `name_ar`                                                                                                                                                                                                                                                                                                                                                                                      |
+|             | `permission`                              | `key` unique, e.g. `flight.read`, `flight.write`, `assignment.write`, `attendance.record`, `staff.write`, `import.run`, `report.read`, `user.manage`, `settings.manage`, `audit.read`                                                                                                                                                                                                                                                           |
+|             | `role_permission`                         | PK (`role_id`, `permission_id`)                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Workforce   | `staff_function`                          | Configurable lookup (ramp, baggage, check-in, gate…): `key`, `name_en`, `name_ar`                                                                                                                                                                                                                                                                                                                                                               |
+|             | `team`                                    | `name`, `supervisor_staff_id` → `staff`, `active`                                                                                                                                                                                                                                                                                                                                                                                               |
+|             | `staff`                                   | `employee_no` unique, `full_name`, `full_name_ar`, `phone`, `function_id`, `team_id`, `user_id` nullable unique, `active`, `odoo_id` nullable unique                                                                                                                                                                                                                                                                                            |
+|             | `shift`                                   | `staff_id`, `starts_at`, `ends_at`, `status`, check `ends_at > starts_at`. Manual/imported in the MVP, generated in Phase 4                                                                                                                                                                                                                                                                                                                     |
+| Flights     | `flight`                                  | `airline_code`, `flight_no`, `direction` enum (`arrival`/`departure`), `origin`, `destination` (IATA), `scheduled_at`, `estimated_at`, `actual_at`, `status` enum (`scheduled`/`delayed`/`boarding`/`departed`/`arrived`/`cancelled`/`diverted`), `stand`, `gate`, `aircraft_type`, `handling_starts_at`, `handling_ends_at`, `source` enum (`manual`/`import`/`feed`), `external_ref`. Unique (`source`, `external_ref`); index `scheduled_at` |
+|             | `handling_window_rule`                    | `direction`, optional `aircraft_category`, `minutes_before`, `minutes_after`. Computes the default window; per-flight overrides are audited                                                                                                                                                                                                                                                                                                     |
+|             | `flight_staffing_requirement`             | `flight_id`, `function_id`, `required_count` (> 0); unique (`flight_id`, `function_id`)                                                                                                                                                                                                                                                                                                                                                         |
+| Assignments | `assignment`                              | `flight_id`, `staff_id`, `team_id` nullable, `starts_at`, `ends_at` (copied from the handling window), `status` enum (`assigned`/`cancelled`/`completed`), `assigned_by`, `override_reason`. Indexes `flight_id`, (`staff_id`, `starts_at`)                                                                                                                                                                                                     |
+| Attendance  | `attendance_event`                        | **Append-only**: `staff_id`, `shift_id` nullable, `type` enum (`check_in`/`check_out`/`break_start`/`break_end`), `occurred_at`, `recorded_by`, `note`. Index (`staff_id`, `occurred_at`). Corrections are new events with a reason, never edits                                                                                                                                                                                                |
+|             | `absence`                                 | `staff_id`, `starts_at`, `ends_at`, `type` enum (`sick`/`leave`/`no_show`/`other`), `reason`, `recorded_by`                                                                                                                                                                                                                                                                                                                                     |
+| Imports     | `import_batch`                            | `kind` (`staff`/`flights`), `file_name`, `status` enum (`previewed`/`committed`/`failed`), `created_by`, row counts                                                                                                                                                                                                                                                                                                                             |
+|             | `import_row`                              | `batch_id`, `row_no`, `raw` jsonb, `parsed` jsonb, `errors` jsonb, `action` (`create`/`update`/`skip`), `target_id`. Drives import preview and Odoo reconciliation                                                                                                                                                                                                                                                                              |
+| Audit       | `audit_log`                               | **Insert-only**: `actor_user_id`, `action`, `entity_type`, `entity_id`, `before` jsonb, `after` jsonb, `reason`, `created_at`. Indexes (`entity_type`, `entity_id`), `created_at`                                                                                                                                                                                                                                                               |
+| Settings    | `app_setting`                             | `key` PK, `value` jsonb                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ### Required custom migrations
+
 1. **Overlap constraint** (rule §6.2):
    ```sql
    CREATE EXTENSION IF NOT EXISTS btree_gist;
@@ -173,17 +179,20 @@ These descriptions are **proposed defaults**. The final permission matrix is sti
 2. **RBAC seed**: insert the 5 roles, all permission keys, and the default `role_permission` matrix. Permission keys are also exported as constants from `#lib/server/rbac/permissions.ts`. Keep the two in sync: adding a key means changing both the constant and a new seed migration.
 
 ### Derived data (computed at query time in the MVP, not stored)
+
 - Coverage per flight comes from requirements vs. active assignments.
 - Missing staff are shifts with `starts_at <= now()` and no `check_in` event.
 - Scheduled vs. available comes from shifts − absences − missing − on break.
 - Add an `operational_alert` table only once alerts need acknowledgement or escalation.
 
 ### Phase 4+ (do not build yet)
+
 `roster_pattern` (recurring / 12-on-24-off), `flight_feed_sync`, overtime calculations, forecasting tables.
 
 ## 8. Authentication — PENDING DECISION
 
 No auth library is installed yet. Ask the user before choosing one. Better Auth with its Drizzle adapter (`sv add better-auth`) is the leading candidate. Any choice must provide:
+
 - Email/password login. Accounts are created by Admin, with **no public sign-up**.
 - Server-side sessions stored in Postgres. `App.Locals` gets `user` and `session` (typed in `src/app.d.ts`), plus loaded permissions.
 - Deactivating a user (`active = false`) revokes their sessions immediately.
@@ -192,9 +201,9 @@ No auth library is installed yet. Ask the user before choosing one. Better Auth 
 
 ## 9. Scaffold cleanup (still to do)
 
-- [ ] Remove the demo `task` table, `src/routes/demo/`, and the `hello_world` demo message.
+- [ ] Remove the demo `task` table.
 - [ ] Replace the marketing `src/lib/app/layout/Header.svelte` (Features/Pricing/Sign Up placeholders) with the app navigation shell.
-- [ ] Turn `src/routes/login/` from the superforms demo (it only logs the email) into the real login.
+- [ ] Build the real `src/routes/login/` (the scaffold demo was removed).
 - [ ] Replace the `Hi` placeholder in `src/routes/+page.svelte`.
 - [ ] `git init`: the project is not under version control yet.
 

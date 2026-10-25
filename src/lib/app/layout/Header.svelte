@@ -1,115 +1,127 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { afterNavigate } from '$app/navigation';
+	import AirplaneTiltIcon from 'phosphor-svelte/lib/AirplaneTiltIcon';
+	import ListIcon from 'phosphor-svelte/lib/ListIcon';
+	import XIcon from 'phosphor-svelte/lib/XIcon';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import { localizeHref } from '#lib/paraglide/runtime.js';
+	import { AnimatedThemeToggler } from '#lib/components/magic/animated-theme-toggler/index.js';
+	import { localizedHref, type StaticRoute } from '#lib/i18n.js';
+	import { m } from '#lib/paraglide/messages.js';
+	import { deLocalizeHref, getLocale, locales, setLocale } from '#lib/paraglide/runtime.js';
 	import { cn } from '#lib/utils.js';
-	import Menu from '@lucide/svelte/icons/menu';
-	import X from '@lucide/svelte/icons/x';
-	import { scrollY } from 'svelte/reactivity/window';
 
-	const menuItems = [
-		{ name: 'Features', href: '#' },
-		{ name: 'Pricing', href: '#' },
-		{ name: 'Login', href: '/login' }
-	];
-	let menuState = $state(false);
-	let menuButton: HTMLButtonElement;
+	const navRoutes: { route: StaticRoute; label: string }[] = [{ route: '/', label: m.nav_home() }];
+	const navItems = navRoutes.map((item) => ({
+		path: resolve(item.route),
+		href: localizedHref(item.route),
+		label: item.label
+	}));
+
+	const localeLabels: Record<(typeof locales)[number], string> = { en: 'EN', ar: 'ع' };
+
+	const homeHref = localizedHref('/');
+	const currentLocale = getLocale();
+	const currentPath = $derived(deLocalizeHref(page.url.pathname));
+
 	const id = $props.id();
 	const menuId = `${id}-menu`;
-	const isScrolled = $derived((scrollY.current ?? 0) > 50);
+	let menuOpen = $state(false);
+	let menuButton: HTMLButtonElement | null = $state(null);
 
-	function closeMenu() {
-		menuState = false;
-	}
+	afterNavigate(() => {
+		menuOpen = false;
+	});
 
 	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape' && menuState) {
-			closeMenu();
-			menuButton.focus();
+		if (event.key === 'Escape' && menuOpen) {
+			menuOpen = false;
+			menuButton?.focus();
 		}
 	}
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
 
-<header>
-	<nav
-		data-state={menuState ? 'active' : undefined}
-		class={cn(
-			'fixed z-20 w-full transition-[background-color,border-color,backdrop-filter] duration-300 motion-reduce:transition-none',
-			isScrolled && 'border-b border-black/5 bg-background/75 backdrop-blur-lg'
-		)}
-	>
-		<div class="mx-auto max-w-5xl px-6">
-			<div class="relative flex flex-wrap items-center justify-between gap-6 py-3 lg:gap-0">
-				<div class="flex w-full justify-between gap-6 lg:w-auto">
-					<a href={localizeHref('/')} aria-label="home" class="flex items-center space-x-2">Logo</a>
-					<button
-						bind:this={menuButton}
-						type="button"
-						onclick={() => (menuState = !menuState)}
-						aria-label={menuState ? 'Close Menu' : 'Open Menu'}
-						aria-controls={menuId}
-						aria-expanded={menuState}
-						class="relative z-20 -m-2.5 -mr-4 block cursor-pointer p-2.5 lg:hidden"
-					>
-						<Menu
-							class="m-auto size-6 transition-[transform,opacity] duration-200 in-data-[state=active]:scale-0 in-data-[state=active]:rotate-180 in-data-[state=active]:opacity-0 motion-reduce:transition-none"
-						/>
-						<X
-							class="absolute inset-0 m-auto size-6 scale-0 -rotate-180 opacity-0 transition-[transform,opacity] duration-200 in-data-[state=active]:scale-100 in-data-[state=active]:rotate-0 in-data-[state=active]:opacity-100 motion-reduce:transition-none"
-						/>
-					</button>
-					<div class="m-auto hidden size-fit lg:block">
-						<ul class="flex gap-1">
-							{#each menuItems as item, i (i)}
-								<li>
-									<Button href={item.href} variant="ghost" size="sm" class="text-sm font-normal"
-										>{item.name}</Button
-									>
-								</li>
-							{/each}
-						</ul>
-					</div>
-				</div>
+<header
+	class="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-lg supports-backdrop-filter:bg-background/60"
+>
+	<div class="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 sm:px-6">
+		<a href={homeHref} class="flex shrink-0 items-center gap-2 text-sm font-semibold">
+			<AirplaneTiltIcon class="size-5 rtl:-scale-x-100" weight="duotone" />
+			<span>{m.app_name()}</span>
+		</a>
 
-				<div
-					id={menuId}
-					class="mb-6 hidden w-full flex-wrap items-center justify-end space-y-8 rounded-3xl border bg-background p-6 shadow-2xl shadow-zinc-300/20 in-data-[state=active]:block md:flex-nowrap lg:m-0 lg:flex lg:w-fit lg:gap-6 lg:space-y-0 lg:border-transparent lg:bg-transparent lg:p-0 lg:shadow-none lg:in-data-[state=active]:flex dark:shadow-none dark:lg:bg-transparent"
+		<nav aria-label={m.app_name()} class="hidden items-center gap-1 md:flex">
+			{#each navItems as item (item.path)}
+				<Button
+					href={item.href}
+					variant="ghost"
+					size="sm"
+					aria-current={currentPath === item.path ? 'page' : undefined}
+					class="text-muted-foreground aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
 				>
-					<div class="lg:hidden">
-						<ul class="space-y-6 text-base">
-							{#each menuItems as item, i (i)}
-								<li>
-									<a
-										href={localizeHref(item.href)}
-										onclick={closeMenu}
-										class="block text-muted-foreground transition-colors duration-150 hover:text-accent-foreground"
-										>{item.name}</a
-									>
-								</li>
-							{/each}
-						</ul>
-					</div>
-					<div class="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit">
-						<Button
-							href="#"
-							onclick={closeMenu}
-							variant="ghost"
-							size="sm"
-							class={cn(isScrolled && 'lg:hidden')}>Login</Button
-						>
-						<Button href="#" onclick={closeMenu} size="sm" class={cn(isScrolled && 'lg:hidden')}
-							>Sign Up</Button
-						>
-						<Button
-							href="#"
-							onclick={closeMenu}
-							size="sm"
-							class={cn(isScrolled ? 'lg:inline-flex' : 'hidden')}>Get Started</Button
-						>
-					</div>
-				</div>
+					{item.label}
+				</Button>
+			{/each}
+		</nav>
+
+		<div class="ms-auto flex items-center gap-1">
+			<div role="group" aria-label={m.language_switch()} class="flex border">
+				{#each locales as locale (locale)}
+					<button
+						type="button"
+						lang={locale}
+						aria-pressed={locale === currentLocale}
+						onclick={() => setLocale(locale)}
+						class="h-7 min-w-8 px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-pressed:bg-primary aria-pressed:text-primary-foreground"
+					>
+						{localeLabels[locale]}
+					</button>
+				{/each}
 			</div>
+
+			<AnimatedThemeToggler
+				class="inline-flex size-8 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&_svg]:size-4"
+			/>
+
+			<Button
+				bind:ref={menuButton}
+				variant="ghost"
+				size="icon"
+				class="md:hidden"
+				aria-label={menuOpen ? m.menu_close() : m.menu_open()}
+				aria-controls={menuId}
+				aria-expanded={menuOpen}
+				onclick={() => (menuOpen = !menuOpen)}
+			>
+				{#if menuOpen}
+					<XIcon class="size-5" />
+				{:else}
+					<ListIcon class="size-5" />
+				{/if}
+			</Button>
 		</div>
+	</div>
+
+	<nav
+		id={menuId}
+		aria-label={m.app_name()}
+		class={cn('border-t bg-background md:hidden', !menuOpen && 'hidden')}
+	>
+		<ul class="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-3">
+			{#each navItems as item (item.path)}
+				<li>
+					<a
+						href={item.href}
+						aria-current={currentPath === item.path ? 'page' : undefined}
+						class="block px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
+					>
+						{item.label}
+					</a>
+				</li>
+			{/each}
+		</ul>
 	</nav>
 </header>

@@ -1,4 +1,11 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"hello_world": "Hello, {name} from en!"
+	"app_name": "Airport Ops",
+	"nav_home": "Home",
+	"menu_open": "Open menu",
+	"menu_close": "Close menu",
+	"theme_toggle": "Toggle theme",
+	"language_switch": "Language",
+	"home_title": "Damascus Airport Operations",
+	"home_subtitle": "Flights, staffing, assignments and attendance in one place."
 }

@@ -1,4 +1,11 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"hello_world": "مالي خرا أنا سفيت, {name} !"
+	"app_name": "عمليات المطار",
+	"nav_home": "الرئيسية",
+	"menu_open": "فتح القائمة",
+	"menu_close": "إغلاق القائمة",
+	"theme_toggle": "تبديل المظهر",
+	"language_switch": "اللغة",
+	"home_title": "عمليات مطار دمشق",
+	"home_subtitle": "الرحلات والكوادر والتكليفات والحضور في مكان واحد."
 }
