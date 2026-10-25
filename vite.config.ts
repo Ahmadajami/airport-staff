@@ -13,13 +13,17 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter()
+			adapter: adapter(),
+			// Root-relative URLs from resolve(), so localizeHref() can prefix them on the server too.
+			paths: { relative: false }
 		}),
 
 		paraglideVitePlugin({
 			project: './project.inlang',
 			outdir: './src/lib/paraglide',
-			emitTsDeclarations: true
+			emitTsDeclarations: true,
+			// Locale lives in the URL (`/ar/...`); cookie remembers the last choice.
+			strategy: ['url', 'cookie', 'baseLocale']
 		})
 	]
 });
