@@ -1,0 +1,115 @@
+<script lang="ts">
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { localizeHref } from '#lib/paraglide/runtime.js';
+	import { cn } from '#lib/utils.js';
+	import Menu from '@lucide/svelte/icons/menu';
+	import X from '@lucide/svelte/icons/x';
+	import { scrollY } from 'svelte/reactivity/window';
+
+	const menuItems = [
+		{ name: 'Features', href: '#' },
+		{ name: 'Pricing', href: '#' },
+		{ name: 'Login', href: '/login' }
+	];
+	let menuState = $state(false);
+	let menuButton: HTMLButtonElement;
+	const id = $props.id();
+	const menuId = `${id}-menu`;
+	const isScrolled = $derived((scrollY.current ?? 0) > 50);
+
+	function closeMenu() {
+		menuState = false;
+	}
+
+	function handleKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape' && menuState) {
+			closeMenu();
+			menuButton.focus();
+		}
+	}
+</script>
+
+<svelte:window onkeydown={handleKeydown} />
+
+<header>
+	<nav
+		data-state={menuState ? 'active' : undefined}
+		class={cn(
+			'fixed z-20 w-full transition-[background-color,border-color,backdrop-filter] duration-300 motion-reduce:transition-none',
+			isScrolled && 'border-b border-black/5 bg-background/75 backdrop-blur-lg'
+		)}
+	>
+		<div class="mx-auto max-w-5xl px-6">
+			<div class="relative flex flex-wrap items-center justify-between gap-6 py-3 lg:gap-0">
+				<div class="flex w-full justify-between gap-6 lg:w-auto">
+					<a href={localizeHref('/')} aria-label="home" class="flex items-center space-x-2">Logo</a>
+					<button
+						bind:this={menuButton}
+						type="button"
+						onclick={() => (menuState = !menuState)}
+						aria-label={menuState ? 'Close Menu' : 'Open Menu'}
+						aria-controls={menuId}
+						aria-expanded={menuState}
+						class="relative z-20 -m-2.5 -mr-4 block cursor-pointer p-2.5 lg:hidden"
+					>
+						<Menu
+							class="m-auto size-6 transition-[transform,opacity] duration-200 in-data-[state=active]:scale-0 in-data-[state=active]:rotate-180 in-data-[state=active]:opacity-0 motion-reduce:transition-none"
+						/>
+						<X
+							class="absolute inset-0 m-auto size-6 scale-0 -rotate-180 opacity-0 transition-[transform,opacity] duration-200 in-data-[state=active]:scale-100 in-data-[state=active]:rotate-0 in-data-[state=active]:opacity-100 motion-reduce:transition-none"
+						/>
+					</button>
+					<div class="m-auto hidden size-fit lg:block">
+						<ul class="flex gap-1">
+							{#each menuItems as item, i (i)}
+								<li>
+									<Button href={item.href} variant="ghost" size="sm" class="text-sm font-normal"
+										>{item.name}</Button
+									>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				</div>
+
+				<div
+					id={menuId}
+					class="mb-6 hidden w-full flex-wrap items-center justify-end space-y-8 rounded-3xl border bg-background p-6 shadow-2xl shadow-zinc-300/20 in-data-[state=active]:block md:flex-nowrap lg:m-0 lg:flex lg:w-fit lg:gap-6 lg:space-y-0 lg:border-transparent lg:bg-transparent lg:p-0 lg:shadow-none lg:in-data-[state=active]:flex dark:shadow-none dark:lg:bg-transparent"
+				>
+					<div class="lg:hidden">
+						<ul class="space-y-6 text-base">
+							{#each menuItems as item, i (i)}
+								<li>
+									<a
+										href={localizeHref(item.href)}
+										onclick={closeMenu}
+										class="block text-muted-foreground transition-colors duration-150 hover:text-accent-foreground"
+										>{item.name}</a
+									>
+								</li>
+							{/each}
+						</ul>
+					</div>
+					<div class="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit">
+						<Button
+							href="#"
+							onclick={closeMenu}
+							variant="ghost"
+							size="sm"
+							class={cn(isScrolled && 'lg:hidden')}>Login</Button
+						>
+						<Button href="#" onclick={closeMenu} size="sm" class={cn(isScrolled && 'lg:hidden')}
+							>Sign Up</Button
+						>
+						<Button
+							href="#"
+							onclick={closeMenu}
+							size="sm"
+							class={cn(isScrolled ? 'lg:inline-flex' : 'hidden')}>Get Started</Button
+						>
+					</div>
+				</div>
+			</div>
+		</div>
+	</nav>
+</header>
