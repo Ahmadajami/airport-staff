@@ -76,10 +76,12 @@
 				<footer class="font-mono text-sm font-semibold">~ {quoteAuthor}</footer>
 			</blockquote>
 		</div>
-		<div class="absolute inset-0">
-			<FloatingPaths position={1} />
-			<FloatingPaths position={-1} />
-		</div>
+		
+			<div class="absolute inset-0">
+				<FloatingPaths position={1} />
+				<FloatingPaths position={-1} />
+			</div>
+		
 	</div>
 
 	<div class="relative flex min-h-screen flex-col justify-center px-8">

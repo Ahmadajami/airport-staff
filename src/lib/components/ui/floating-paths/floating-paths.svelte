@@ -48,12 +48,12 @@
 <div
 	aria-hidden="true"
 	class={cn(
-		'pointer-events-none absolute inset-0 isolate will-change-transform contain-strict',
+		'pointer-events-none absolute inset-0 isolate transform-gpu will-change-transform contain-strict ',
 		className
 	)}
 	{...restProps}
 >
-	<svg class="h-full w-full text-primary" fill="none" viewBox="0 0 696 316">
+	<svg class="h-full w-full text-primary contain-strict" fill="none" viewBox="0 0 696 316">
 		<title>Background Paths</title>
 
 		{#each paths as path (path.id)}

@@ -19,8 +19,8 @@
 	},
 	"devDependencies": {
 		"@dnd-kit-svelte/svelte": "^0.1.6",
-		"@dnd-kit/abstract": "^0.1.21",
-		"@dnd-kit/helpers": "^0.1.21",
+		"@dnd-kit/abstract": "^0.2.4",
+		"@dnd-kit/helpers": "^0.2.4",
 		"@eslint/js": "^10.0.1",
 		"@fontsource-variable/jetbrains-mono": "^5.3.0",
 		"@inlang/paraglide-js": "^2.18.2",
