@@ -4,7 +4,7 @@ Tracking file for the auth work (CLAUDE.md §8). Each step has an ID (`B4`, `F2`
 reviews can point at it. Tick a step when it has landed. Start the next phase only after the
 previous checkpoint is verified.
 
-**Status:** A ✅ · B ✅ · C ✅ · D ✅ · E ✅ · R ✅ · F ✅ · G ✅ · H 🚧
+**Status:** A ✅ · B ✅ · C ✅ · D ✅ · E ✅ · R ✅ · F ✅ · G ✅ · H ✅ — auth plan complete
 
 ## Decisions
 
@@ -171,7 +171,7 @@ manager account created there.
 ## Phase F — Token API for CSR / mobile clients (JWT) ✅
 
 - [x] **F1** `POST /api/auth/token`: `{ idNumber, code }` → `{ tokenType, accessToken, expiresIn, refreshToken,
-  refreshExpiresAt }` (`session.client = api`), through the same `authenticate()` as `/login` (rate limit,
+refreshExpiresAt }` (`session.client = api`), through the same `authenticate()` as `/login` (rate limit,
       lockout, expiry, Arabic-Indic digits). Failure messages shared via `LOGIN_FAILURE` in `login.ts`.
 - [x] **F2** `POST /api/auth/refresh`: `{ refreshToken }` → new pair. The old session row is deleted first, so a
       refresh token works once (replay or a concurrent refresh → 401); never past the code's expiry.
@@ -211,13 +211,33 @@ access JWT → 401, sign-in → generic error; reactivated + new code → old co
 (`failed_login_count 5`, `locked_at` set); a new code → signed in straight away. Audit rows written for
 create, issue_code, activate, deactivate. `pnpm check` 0 errors, `pnpm build` passes.
 
-## Phase H — Hardening & docs ⏳
+## Phase H — Hardening & docs ✅
 
-- [ ] **H1** Clean up expired sessions and old login attempts opportunistically.
-- [ ] **H2** Update CLAUDE.md §4, §8, §9.
-- [ ] **H3** Security review of the auth diff.
+- [x] **H1** Housekeeping rides along with every successful sign-in (same batch): expired sessions and
+      `login_attempt` rows older than 30 days are deleted. No cron job needed at this scale.
+- [x] **H2** CLAUDE.md §2 (auth CLI), §3 (dates helper), §4 (layout), §7 (auth tables, migrations), §8 (auth
+      decided and summarised), §9 (scaffold cleanup done).
+- [x] **H3** Security review of the auth surface (below), and the one fix it called for: security headers on
+      every response in `hooks.server.ts` (`X-Frame-Options: DENY` + `frame-ancestors 'none'`, `nosniff`,
+      `Referrer-Policy`, HSTS outside dev).
 
-**Checkpoint H:** full flow re-tested in EN and AR (web) and via curl (API); `pnpm check` and `pnpm lint` clean.
+### Security review (2026-10-26)
+
+| Area                 | Result                                                                                                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CSRF                 | ✅ Form actions and `/logout`: Kit origin check (403 cross-site in production, verified). `/api/auth/*`: cross-site `text/plain` is also a form type and blocked; JSON needs CORS, none is sent. |
+| Sessions / JWT       | ✅ Only token hashes stored; cookie `httpOnly`, `Secure` in prod, `SameSite=Lax`; HS256 pinned with `iss` / `aud` / `exp`; every request re-loads the session; refresh tokens single-use.        |
+| Secrets              | ✅ Codes, tokens and hashes never reach logs, `audit_log`, layout data or the accounts list (explicit column selection).                                                                         |
+| Enumeration / timing | ✅ Unknown / inactive IDs: generic message + dummy Argon2. ⚠ "Locked" reveals that an ID exists and is locked (accepted: it tells the real user what to do).                                     |
+| Brute force          | ✅ 6 digits + lockout after 5 → ≤ 5 guesses per issued code. ⚠ Anyone who knows an ID can lock it (recovery: `pnpm auth:issue-code`). ⚠ A shared airport NAT shares the 20-per-IP budget.        |
+| Clickjacking         | ✅ Fixed in H3 (framing denied everywhere).                                                                                                                                                      |
+| Open items           | ⚠ Admin `1234` uses the development code `123456` → re-issue before real use. ⚠ `/employees` has no permission check yet (mock data, TODO until the staff service exists).                       |
+
+**Checkpoint H: PASSED.** Production preview: HSTS + framing headers present; admin signs in → 303 `/`;
+`/admin/users` and `/ar/admin/users` (RTL) render; cross-site POST to an account action → 403; logout → 303.
+`pnpm check` 0 errors (1 old warning in `stepper-item.svelte`), `pnpm build` passes, Prettier and ESLint clean
+on all auth files. Project-wide `pnpm lint` still reports pre-existing issues in generated shadcn files
+(`chart-tooltip.svelte` and unformatted `ui/` components), not touched here.
 
 ## Later (only if employees get access)
 

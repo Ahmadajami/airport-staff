@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { Cookies, RequestEvent } from '@sveltejs/kit';
-import { and, eq, ne } from 'drizzle-orm';
+import { and, eq, lt, ne } from 'drizzle-orm';
 import { dev } from '$app/env';
 import { db } from '#lib/server/db/index.js';
 import { session, type sessionClient } from '#lib/server/db/schema/index.js';
@@ -187,6 +187,11 @@ export async function validateSession(
 /** Delete one session. Await it, or pass it to `db.batch([...])`. */
 export function invalidateSession(sessionId: string) {
 	return db.delete(session).where(eq(session.id, sessionId));
+}
+
+/** Delete every expired session (all users). Await it, or pass it to `db.batch([...])`. */
+export function deleteExpiredSessions() {
+	return db.delete(session).where(lt(session.expiresAt, new Date()));
 }
 
 /** Delete every session of a user (web and API), optionally keeping the current one. */
