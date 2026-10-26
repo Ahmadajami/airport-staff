@@ -1,7 +1,12 @@
-import { sequence, type Handle } from '@sveltejs/kit/hooks';
+import { sequence, type Handle, type HandleServerError } from '@sveltejs/kit/hooks';
+import { DrizzleQueryError } from 'drizzle-orm/errors';
 import { dev } from '$app/env';
+import { frameworkError, internalError } from '#lib/errors.js';
+import { m } from '#lib/paraglide/messages.js';
 import { getTextDirection } from '#lib/paraglide/runtime.js';
 import { paraglideMiddleware } from '#lib/paraglide/server.js';
+import { AppError } from '#lib/server/errors.js';
+import { pgErrorCode } from '#lib/server/services/common.js';
 import { bearerToken, verifyAccessToken } from '#lib/server/auth/jwt.js';
 import {
 	SESSION_COOKIE,
@@ -92,3 +97,43 @@ const handleSecurityHeaders: Handle = async ({ event, resolve }) => {
 };
 
 export const handle: Handle = sequence(handleSecurityHeaders, handleParaglide, handleAuth);
+
+/**
+ * A failed Drizzle query carries its bound params (codes' hashes, tokens), so log the query text
+ * and the driver error instead (CLAUDE.md §8: never log secrets).
+ */
+function loggable(error: unknown): unknown {
+	if (error instanceof DrizzleQueryError) return { query: error.query, cause: error.cause };
+	return error;
+}
+
+/**
+ * Every error passes through here before `+error.svelte` (or JSON for `+server.ts` and API
+ * clients) shows it. App errors (`error(status, message, { code })`) are already safe. An
+ * `AppError` a service threw becomes its status, code and message. Anything else is logged and
+ * hidden behind `internal`. Framework errors (404s) are routine and not logged. Must never throw.
+ */
+export const handleError: HandleServerError = ({ kind, error, event }) => {
+	switch (kind) {
+		case 'app':
+			return error;
+		case 'framework':
+			return frameworkError(error.status, error.message);
+		case 'validation':
+			return { code: 'invalid_input' };
+	}
+
+	if (error instanceof AppError) {
+		return { status: error.status, code: error.code, message: error.message };
+	}
+
+	console.error(
+		`[handleError] ${event.request.method} ${event.route.id ?? event.url.pathname}`,
+		loggable(error)
+	);
+	// An overlap the service didn't map is still a conflict, never a silent 500 (CLAUDE.md §6.2).
+	if (pgErrorCode(error) === '23P01') {
+		return { status: 409, code: 'conflict', message: m.error_conflict() };
+	}
+	return internalError();
+};
