@@ -1,4 +1,5 @@
 import { eq, sql } from 'drizzle-orm';
+import { m } from '#lib/paraglide/messages.js';
 import { db } from '#lib/server/db/index.js';
 import { user } from '#lib/server/db/schema/index.js';
 import { MAX_CONSECUTIVE_CODE_FAILURES } from './credentials.js';
@@ -15,6 +16,15 @@ export type LoginFailure =
 	| 'locked'
 	/** Correct code, but it has expired; needs a new code. */
 	| 'code_expired';
+
+/** HTTP status and localized message for each failure, shared by `/login` and the token API. */
+export const LOGIN_FAILURE: Record<LoginFailure, { status: 400 | 403 | 429; text: () => string }> =
+	{
+		invalid: { status: 400, text: () => m.login_invalid() },
+		rate_limited: { status: 429, text: () => m.login_rate_limited() },
+		locked: { status: 403, text: () => m.login_locked() },
+		code_expired: { status: 403, text: () => m.login_code_expired() }
+	};
 
 export type LoginResult =
 	| { ok: false; reason: LoginFailure }

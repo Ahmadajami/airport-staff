@@ -4,7 +4,7 @@ Tracking file for the auth work (CLAUDE.md §8). Each step has an ID (`B4`, `F2`
 reviews can point at it. Tick a step when it has landed. Start the next phase only after the
 previous checkpoint is verified.
 
-**Status:** A ✅ · B ✅ · C ✅ · D ✅ · E ✅ · R ✅ · F 🚧 · G–H ⏳
+**Status:** A ✅ · B ✅ · C ✅ · D ✅ · E ✅ · R ✅ · F ✅ · G 🚧 · H ⏳
 
 ## Decisions
 
@@ -66,7 +66,7 @@ Web (SSR, today)
   POST /login (ID + code) → session row (client = web, ≤ code expiry) → httpOnly cookie → /
 
 API (CSR / mobile, future)
-  POST /api/auth/token    (ID + code)    → { accessToken (JWT, 10 min), refreshToken }
+  POST /api/auth/token    { idNumber, code } → { accessToken (JWT, 10 min), refreshToken }
   any /api/* request      Authorization: Bearer <accessToken>
   POST /api/auth/refresh  (refreshToken) → new pair; old refresh token is dead (rotation)
   POST /api/auth/logout   (refreshToken) → session row deleted
@@ -168,17 +168,24 @@ Signed in, `/` renders with the user's name and `/ar` renders RTL.
 ID `1234` + code → 303 to `/`; logout → 303. The 5-wrong-codes lockout is re-tested at Checkpoint G on a
 manager account created there.
 
-## Phase F — Token API for CSR / mobile clients (JWT) ⏳
+## Phase F — Token API for CSR / mobile clients (JWT) ✅
 
-- [ ] **F1** `POST /api/auth/token`: ID + code → access JWT + refresh token (`session.client = api`), via the D1 core.
-- [ ] **F2** `POST /api/auth/refresh`: rotate refresh token (new session row + delete old in one batch); never past code expiry.
-- [ ] **F3** `POST /api/auth/logout`.
-- [ ] **F4** `GET /api/auth/me`: user, role, permissions, code expiry (what a CSR client needs to render).
-- [ ] **F5** JSON error shape (`{ code, message }`), localized via `Accept-Language`; `Cache-Control: no-store`.
-- [ ] **F6** CORS: same-origin only for now; allow-list env var only if a separate client origin appears.
+- [x] **F1** `POST /api/auth/token`: `{ idNumber, code }` → `{ tokenType, accessToken, expiresIn, refreshToken,
+    refreshExpiresAt }` (`session.client = api`), through the same `authenticate()` as `/login` (rate limit,
+      lockout, expiry, Arabic-Indic digits). Failure messages shared via `LOGIN_FAILURE` in `login.ts`.
+- [x] **F2** `POST /api/auth/refresh`: `{ refreshToken }` → new pair. The old session row is deleted first, so a
+      refresh token works once (replay or a concurrent refresh → 401); never past the code's expiry.
+- [x] **F3** `POST /api/auth/logout`: `{ refreshToken }` → 204 either way; deletes that `api` session.
+- [x] **F4** `GET /api/auth/me`: `{ user, session }` (same `toSessionUser()` shape as the layouts), Bearer or cookie.
+- [x] **F5** `src/lib/server/auth/api.ts`: JSON errors `{ code, message }` (stable `code`, localized `message`: `/ar/api/…`
+      or the locale cookie), `Cache-Control: no-store` on every response.
+- [x] **F6** CORS: none. Same-origin only; cross-origin preflights get no `Access-Control-Allow-Origin`.
 
-**Checkpoint F:** curl flow works: token → `/api/auth/me` with Bearer → refresh → old refresh token
-rejected → deactivated user's access JWT rejected on the next request.
+**Checkpoint F: PASSED** (curl, dev server): non-JSON / bad code → 400 `invalid_request`; wrong ID → 400 `invalid`;
+`١٢٣٤` + code → 200 with tokens (`expiresIn 600`, `refreshExpiresAt` = code expiry); `/me` with Bearer → user, 12
+permissions, `client api`; no / forged token → 401; refresh → new pair; replayed refresh → 401; old access JWT after
+rotation → 401; logout → 204 and its access JWT → 401; no CORS headers; Arabic messages under `/ar/api`.
+Deactivation → 401 is re-tested at Checkpoint G on a manager account.
 
 ## Phase G — Account management & code issuing (admin) ⏳
 
