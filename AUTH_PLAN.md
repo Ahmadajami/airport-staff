@@ -4,7 +4,7 @@ Tracking file for the auth work (CLAUDE.md §8). Each step has an ID (`B4`, `F2`
 reviews can point at it. Tick a step when it has landed. Start the next phase only after the
 previous checkpoint is verified.
 
-**Status:** A ✅ · B ✅ · C 🚧 · D–H ⏳
+**Status:** A ✅ · B ✅ · C ✅ · D 🚧 · E–H ⏳
 
 ## Decisions
 
@@ -112,7 +112,7 @@ hooks.server.ts
 cookie is cleared; a garbage Bearer token and a signed JWT without a session fall back to logged-out;
 Argon2id and the one-time password generator work; `AUTH_JWT_SECRET` set locally and on Vercel.
 
-## Phase C — Credential policy (6-digit codes) + first admin 🚧
+## Phase C — Credential policy (6-digit codes) + first admin ✅ (`f9cd8f3`)
 
 - [x] **C1** `user`: `password_expires_at`, `failed_login_count`, `locked_at` → migration `0003`.
 - [x] **C2** Permission `user.issue_code` (admin, operations_manager, supervisor) → seed migration `0004`;
@@ -124,24 +124,34 @@ Argon2id and the one-time password generator work; `AUTH_JWT_SECRET` set locally
 - [x] **C5** `scripts/create-admin.ts` + `pnpm auth:create-admin <loginId> "<full name>"` (via `tsx`).
       Refuses when an active admin exists (unless `--force`); prints the one-time password once; writes `audit_log`.
 - [x] **C6** Migrations `0003` / `0004` applied to Neon (12 permissions, 32 matrix rows; `user.issue_code` → admin, operations_manager, supervisor).
-- [ ] **C7** First admin created with `pnpm auth:create-admin` (run by the project owner, so the one-time password never leaves their terminal).
+- [x] **C7** First admin created (ID `1234`) with `pnpm auth:create-admin` (run by the project owner, so the one-time password never leaves their terminal).
 
-**Checkpoint C:** `user.issue_code` granted to 3 roles in Neon; admin row exists with
+**Checkpoint C: PASSED.** `user.issue_code` granted to 3 roles in Neon; admin row exists with
 `must_change_password = true` and no `password_expires_at`; `pnpm check` clean.
 
-## Phase D — Web login, password change (admin / manager), logout ⏳
+## Phase D — Web login, password change (admin / manager), logout 🚧
 
-- [ ] **D1** Shared login core (`src/lib/server/auth/login.ts`): rate limit → lookup → locked? → verify →
+- [x] **D1** Shared login core (`src/lib/server/auth/login.ts`): rate limit → lookup → locked? → verify →
       code expired? → failure counter / lockout → session. Used by `/login` now and the token API in F.
-- [ ] **D2** `/login` action: create `web` session, cookie, redirect (`/change-password` or `/`). Messages for
-      wrong ID/secret, too many attempts, locked account, expired code.
-- [ ] **D3** `/change-password` (admin / manager only; 404 for code accounts): current + new + confirm;
+- [x] **D2** `/login` action: create `web` session, cookie, redirect (`/change-password` or `/`). Messages for
+      wrong ID/secret, too many attempts, locked account, expired code. Login form: 6-digit OTP input by
+      default, "Sign in with a password instead" toggle for admin / manager (`mode` field in `loginSchema`).
+- [x] **D3** `/change-password` (admin / manager only; 404 for code accounts): current + new + confirm;
       revokes the user's other sessions; audited.
-- [ ] **D4** `/logout` POST action.
-- [ ] **D5** All new strings in `messages/en.json` and `messages/ar.json`.
+- [x] **D4** `POST /logout` (`src/routes/logout/+server.ts`).
+- [x] **D5** All new strings in `messages/en.json` and `messages/ar.json`.
 
 **Checkpoint D:** admin signs in → forced password change → app home; a code account signs in with its code;
 expired code → "ask your supervisor"; 5 wrong codes → locked; same flow under `/ar` (RTL).
+
+Verified with curl (dev server + production preview): wrong code length → 400 "The code must be 6 digits";
+unknown ID → 400 generic error; 6th failure → 429 rate limited; admin one-time password → 303 to
+`/change-password` with a 12 h `HttpOnly; SameSite=Lax` cookie; signed-in `/login` → `/change-password`;
+`/change-password` and `/ar/change-password` render; wrong current password and mismatch → 400 with field
+errors; logout → 303 `/login`, session row deleted; cross-site POST to `/login` / `/logout` → 403 in the
+production build (Kit skips the origin check in dev); `pnpm build` passes.
+**Remaining:** owner completes the forced password change in a browser (EN + AR). Code-account checks
+(sign in with code, expired code, 5-wrong lockout) move to Checkpoint G, when the first code account exists.
 
 ## Phase E — Protect the app area ⏳
 

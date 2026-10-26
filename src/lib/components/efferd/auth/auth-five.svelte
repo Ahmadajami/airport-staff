@@ -12,14 +12,21 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Form from '#lib/components/ui/form/index.js';
 	import * as InputGroup from '#lib/components/ui/input-group/index.js';
+	import * as InputOTP from '#lib/components/ui/input-otp/index.js';
 	import { localizedHref } from '#lib/i18n.js';
 	import { m } from '#lib/paraglide/messages.js';
-	import { ID_DIGITS, loginSchema, type LoginSchema } from '#lib/schemas/auth.schema.js';
+	import {
+		CODE_LENGTH,
+		ID_DIGITS,
+		PASSWORD_MAX_LENGTH,
+		loginSchema,
+		type LoginMode,
+		type LoginSchema
+	} from '#lib/schemas/auth.schema.js';
 	import Logo from '#lib/svgs/logo.svelte';
 	import { cn } from '#lib/utils.js';
 	import { formToasts } from '#lib/utils/form-toasts.js';
 	import { untrack } from 'svelte';
-	import { FloatingPaths } from '#lib/components/ui/floating-paths/index.js';
 
 	type AuthFiveProps = HTMLAttributes<HTMLElement> & {
 		data: SuperValidated<Infer<LoginSchema>, string>;
@@ -49,6 +56,13 @@
 	const { form: formData, enhance, submitting } = form;
 
 	let showPassword = $state(false);
+
+	/** Employees use the 6-digit code (default); admins / managers switch to a password. */
+	function switchMode(mode: LoginMode) {
+		$formData.mode = mode;
+		$formData.password = '';
+		showPassword = false;
+	}
 
 	/** Block anything but digits (Western or Arabic-Indic) from being typed or pasted. */
 	function digitsOnly(event: InputEvent) {
@@ -127,24 +141,43 @@
 					<Form.FieldErrors />
 				</Form.Field>
 
+				<input type="hidden" name="mode" value={$formData.mode} />
+
 				<Form.Field {form} name="password">
-					<Form.Control>
-						{#snippet children({ props })}
-							<Form.Label>{m.login_password_label()}</Form.Label>
-							<InputGroup.Root>
-								<InputGroup.Input
-									{...props}
-									bind:value={$formData.password}
-									type={showPassword ? 'text' : 'password'}
-									autocomplete="current-password"
-									dir="ltr"
-								/>
-								<InputGroup.Addon align="inline-start">
-									<LockIcon />
-								</InputGroup.Addon>
-								<InputGroup.Addon align="inline-end">
-									<InputGroup.Button
-										size="icon-xs"
+					{#if $formData.mode === 'code'}
+						<Form.Control>
+							<!-- PinInput puts `id` on its wrapper and the rest on the hidden <input>,
+							so the label's `for` has to go through `inputId`. -->
+							{#snippet children({ props: { id, ...inputProps } })}
+								<Form.Label>{m.login_code_label()}</Form.Label>
+								<div class="flex items-center gap-2">
+									<!-- PIN digits read left to right in both locales. -->
+									<div dir="ltr" class="flex-1">
+										<InputOTP.Root
+											{...inputProps}
+											inputId={id}
+											bind:value={$formData.password}
+											maxlength={CODE_LENGTH}
+											pattern={ID_DIGITS.source}
+											autocomplete="current-password"
+											class="w-full"
+										>
+											{#snippet children({ cells })}
+												<InputOTP.Group class="w-full">
+													{#each cells as cell, i (i)}
+														<InputOTP.Slot
+															{cell}
+															masked={!showPassword}
+															class="h-9 flex-1 text-sm"
+														/>
+													{/each}
+												</InputOTP.Group>
+											{/snippet}
+										</InputOTP.Root>
+									</div>
+									<Button
+										variant="outline"
+										size="icon"
 										aria-label={showPassword ? m.login_password_hide() : m.login_password_show()}
 										aria-pressed={showPassword}
 										onclick={() => (showPassword = !showPassword)}
@@ -154,11 +187,45 @@
 										{:else}
 											<EyeIcon />
 										{/if}
-									</InputGroup.Button>
-								</InputGroup.Addon>
-							</InputGroup.Root>
-						{/snippet}
-					</Form.Control>
+									</Button>
+								</div>
+							{/snippet}
+						</Form.Control>
+						<Form.Description>{m.login_code_hint()}</Form.Description>
+					{:else}
+						<Form.Control>
+							{#snippet children({ props })}
+								<Form.Label>{m.login_password_label()}</Form.Label>
+								<InputGroup.Root>
+									<InputGroup.Input
+										{...props}
+										bind:value={$formData.password}
+										type={showPassword ? 'text' : 'password'}
+										autocomplete="current-password"
+										maxlength={PASSWORD_MAX_LENGTH}
+										dir="ltr"
+									/>
+									<InputGroup.Addon align="inline-start">
+										<LockIcon />
+									</InputGroup.Addon>
+									<InputGroup.Addon align="inline-end">
+										<InputGroup.Button
+											size="icon-xs"
+											aria-label={showPassword ? m.login_password_hide() : m.login_password_show()}
+											aria-pressed={showPassword}
+											onclick={() => (showPassword = !showPassword)}
+										>
+											{#if showPassword}
+												<EyeSlashIcon />
+											{:else}
+												<EyeIcon />
+											{/if}
+										</InputGroup.Button>
+									</InputGroup.Addon>
+								</InputGroup.Root>
+							{/snippet}
+						</Form.Control>
+					{/if}
 					<Form.FieldErrors />
 				</Form.Field>
 
@@ -168,6 +235,14 @@
 					{/if}
 					{m.login_submit()}
 				</Form.Button>
+
+				<Button
+					variant="link"
+					class="w-full"
+					onclick={() => switchMode($formData.mode === 'code' ? 'password' : 'code')}
+				>
+					{$formData.mode === 'code' ? m.login_use_password() : m.login_use_code()}
+				</Button>
 			</form>
 		</div>
 	</div>

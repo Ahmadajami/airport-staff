@@ -1,4 +1,5 @@
 import { randomInt } from 'node:crypto';
+import { CODE_LENGTH } from '#lib/schemas/auth.schema.js';
 import { CODE_ROLES, type RoleKey } from '#lib/server/rbac/permissions.js';
 
 // Credential policy (AUTH_PLAN.md, "Decisions"):
@@ -7,8 +8,6 @@ import { CODE_ROLES, type RoleKey } from '#lib/server/rbac/permissions.js';
 // - `password`: admin / operations_manager use a long password they set after a one-time password.
 
 export type CredentialKind = 'code' | 'password';
-
-export const CODE_LENGTH = 6;
 
 /** Validity choices offered when issuing a code. Open question with the ops team. */
 export const CODE_VALIDITY_HOURS = [12, 24, 72] as const;
