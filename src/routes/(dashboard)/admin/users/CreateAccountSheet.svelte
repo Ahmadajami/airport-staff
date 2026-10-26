@@ -35,7 +35,7 @@
 			}
 		}
 	);
-	const { form: formData, message, enhance, submitting } = form;
+	const { form: formData, message, enhance, delayed } = form;
 
 	const selectedRole = $derived(roles.find((r) => r.key === $formData.role));
 
@@ -132,8 +132,8 @@
 				<p class="text-sm text-destructive" role="alert">{$message.text}</p>
 			{/if}
 
-			<Form.Button class="w-full" disabled={$submitting}>
-				{#if $submitting}
+			<Form.Button class="w-full" disabled={$delayed}>
+				{#if $delayed}
 					<SpinnerGapIcon data-icon="inline-start" class="animate-spin" />
 				{/if}
 				{m.users_create_submit()}

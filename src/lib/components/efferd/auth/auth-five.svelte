@@ -50,7 +50,7 @@
 			...formToasts()
 		}
 	);
-	const { form: formData, enhance, submitting } = form;
+	const { form: formData, enhance, delayed } = form;
 
 	let showPassword = $state(false);
 
@@ -178,8 +178,8 @@
 					<Form.FieldErrors />
 				</Form.Field>
 
-				<Form.Button class="w-full" disabled={$submitting}>
-					{#if $submitting}
+				<Form.Button class="w-full" disabled={$delayed}>
+					{#if $delayed}
 						<SpinnerGapIcon data-icon="inline-start" class="animate-spin" />
 					{/if}
 					{m.login_submit()}

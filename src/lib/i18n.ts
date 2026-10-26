@@ -18,6 +18,23 @@ export type AppPath = `/${Path}`;
  * @example localizedHref('/login')        // '/login' or '/ar/login'
  * @example localizedHref('/login', 'ar')  // '/ar/login'
  */
-export function localizedHref(url: AppPath, locale?: Locale): ResolvedPathname {
-	return localizeHref(resolve(url.slice(1) as Path), { locale }) as ResolvedPathname;
+export function localizedHref(url: AppPath, locale?: Locale): ResolvedPathname;
+export function localizedHref(
+	url: AppPath,
+	params: Record<string, string>,
+	locale?: Locale
+): ResolvedPathname;
+
+export function localizedHref(
+	url: AppPath,
+	paramsOrLocale?: Record<string, string> | Locale,
+	locale?: Locale
+): ResolvedPathname {
+	const params = typeof paramsOrLocale === 'object' ? paramsOrLocale : undefined;
+	const targetLocale = typeof paramsOrLocale === 'string' ? paramsOrLocale : locale;
+	const filled = params
+		? url.replace(/\[([^\]]+)\]/g, (_, key: string) => encodeURIComponent(params[key] ?? ''))
+		: url;
+	const resolved = resolve(filled.slice(1) as Path);
+	return localizeHref(resolved, { locale: targetLocale }) as ResolvedPathname;
 }

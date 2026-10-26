@@ -1,5 +1,8 @@
 import { m } from '#lib/paraglide/messages.js';
-import { getLocale, getTextDirection } from '#lib/paraglide/runtime.js';
+import { getLocale } from '#lib/paraglide/runtime.js';
+import { endSide, personName } from '#lib/utils/locale.js';
+
+export { endSide, personName };
 
 /** Select options for code validity, in hours (matches `CODE_VALIDITY_HOURS`). */
 export const VALIDITY_OPTIONS = ['24', '168', '720'] as const;
@@ -18,13 +21,4 @@ export type RoleLabel = { key: string; nameEn: string; nameAr: string };
 
 export function roleName(role: RoleLabel): string {
 	return getLocale() === 'ar' ? role.nameAr : role.nameEn;
-}
-
-export function personName(account: { fullName: string; fullNameAr: string | null }): string {
-	return getLocale() === 'ar' ? (account.fullNameAr ?? account.fullName) : account.fullName;
-}
-
-/** Sheets open from the inline end: physical `right` in LTR, `left` in RTL. */
-export function endSide(): 'left' | 'right' {
-	return getTextDirection(getLocale()) === 'rtl' ? 'left' : 'right';
 }

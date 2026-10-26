@@ -1,10 +1,12 @@
 import { relations } from 'drizzle-orm';
 import { pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import type { PermissionKey, RoleKey } from '#lib/server/rbac/permissions.js';
 import { user } from './auth.js';
 
 export const role = pgTable('role', {
 	id: uuid('id').primaryKey().defaultRandom(),
-	key: text('key').notNull().unique(),
+	/** Seeded keys only (`0001_seed_rbac`), so the column is typed as the closed set. */
+	key: text('key').$type<RoleKey>().notNull().unique(),
 	nameEn: text('name_en').notNull(),
 	nameAr: text('name_ar').notNull(),
 	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -16,7 +18,8 @@ export const role = pgTable('role', {
 
 export const permission = pgTable('permission', {
 	id: uuid('id').primaryKey().defaultRandom(),
-	key: text('key').notNull().unique(),
+	/** Seeded keys only, kept in sync with `PERMISSIONS` (CLAUDE.md §7). */
+	key: text('key').$type<PermissionKey>().notNull().unique(),
 	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 	updatedAt: timestamp('updated_at', { withTimezone: true })
 		.notNull()

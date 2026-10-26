@@ -84,6 +84,8 @@
 		"@node-rs/argon2": "^2.2.2",
 		"jose": "^6.2.13",
 		"motion-sv": "^0.2.2",
+		"read-excel-file": "^9.3.12",
+		"write-excel-file": "^4.1.1",
 		"zod": "^4.6.7"
 	}
 }

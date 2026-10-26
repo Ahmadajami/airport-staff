@@ -43,7 +43,7 @@ pnpm auth:issue-code <id> [--days 1|7|30]          # recovery: new code, clears 
 | Imports    | Alias is **`#lib`** (Node subpath imports in `package.json`), **not `$lib`**. e.g. `import { cn } from '#lib/utils.js'`.                                                                                                                                                                                                                                                                     |
 | Env vars   | Declare in `src/env.ts` via `defineEnvVars`, read from **`$app/env/private`**. Add every new var to `.env.example` too. Never commit `.env`.                                                                                                                                                                                                                                                 |
 | DB         | Drizzle ORM 0.45 + `drizzle-orm/neon-http` + Neon Postgres (`src/lib/server/db/index.ts`). See §7.                                                                                                                                                                                                                                                                                           |
-| Forms      | `sveltekit-superforms` v3 with the **`zod4`** adapter (`sveltekit-superforms/adapters`), `zod` v4 (`z.email()`, not `z.string().email()`). Keep the schema in a sibling `schema.ts`; validate again in the action.                                                                                                                                                                           |
+| Forms      | `sveltekit-superforms` v3 with the **`zod4`** adapter (`sveltekit-superforms/adapters`), `zod` v4 (`z.email()`, not `z.string().email()`). Schemas live once in `src/lib/schemas/<service>.schema.ts`, shared by the form, the action and the BL (§3 Service layer).                                                                                                                         |
 | UI         | Tailwind CSS 4 (`src/routes/layout.css`), shadcn-svelte (style `lyra`) in `#lib/components/ui`. Add components with `pnpm dlx shadcn-svelte@latest add <name>`. Use `cn()` from `#lib/utils.js`.                                                                                                                                                                                             |
 | Cards      | Use `Card.*` from `#lib/components/ui/card` for any card/panel. **Never change a card's border**: no `border`/`ring`/`rounded` overrides on `Card.Root`, and no hand-rolled `border bg-card` look-alikes.                                                                                                                                                                                    |
 | Icons      | **phosphor-svelte** (the `components.json` icon library), imported per icon: `import ListIcon from 'phosphor-svelte/lib/ListIcon'`. Don't add new lucide usages.                                                                                                                                                                                                                             |
@@ -54,6 +54,90 @@ pnpm auth:issue-code <id> [--days 1|7|30]          # recovery: new code, clears 
 | Deploy     | `@sveltejs/adapter-vercel` → serverless functions. No long-lived processes or WebSocket servers.                                                                                                                                                                                                                                                                                             |
 | Svelte MCP | For every `.svelte` / `.svelte.ts` file created or edited, run the Svelte MCP `svelte-autofixer` until it reports no issues. Use `get-documentation` for SvelteKit 3 / Svelte 5 APIs instead of guessing.                                                                                                                                                                                    |
 
+### UI rules
+
+- **Markup.** Key every `{#each}` (`(item.id)`; the index only when nothing unique exists). Use declaration tags `{const x = …}` / `{let x = $state(…)}` (Svelte ≥ 5.56) instead of the legacy `{@const}`. Close snippets with `{/snippet}`.
+- **Spacing.** No `space-y-*` / `space-x-*`. Use `flex flex-col gap-*` or grid `gap-*`. Sibling-margin spacing breaks when children render conditionally.
+- **Colors.** Only tokens defined in `src/routes/layout.css`: `background`, `foreground`, `card`, `popover`, `primary`, `secondary`, `muted`, `accent`, `destructive`, `border`, `input`, `ring`, `chart-1`…`chart-5`, `sidebar-*` (plus their `-foreground` pairs). No raw palette colors (`border-gray-200`). There is **no** `warning`/`success`/`info` token: use `destructive` with opacity (`bg-destructive/10`), or add the token to both `:root` and `.dark` in the same change as its first use. Separators use `<Separator />`.
+- **shadcn primitives.** Don't modify `#lib/components/ui/` for one feature. Wrap or compose the primitive in `#lib/app/` instead. Edit `ui/` only for a project-wide fix.
+- **Component props.** Type them with `svelte/elements` (`HTMLAttributes<HTMLDivElement>`, `HTMLButtonAttributes`), never `any`. `Snippet` and `Component` come from `svelte`. Merge classes with an array (`class={['base', className]}`) or `cn()`.
+- **Back buttons.** phosphor `ArrowLeftIcon` with `rtl:rotate-180`, `href={localizedHref(...)}`, label from `m.*()`. Never choose the icon by `getLocale()`.
+- **No template scaffolding.** Nav, user menu, and command items are wired to real routes, session data, and handlers: no placeholder avatars, "Upgrade" links, or fake lists.
+- **State components** (`#lib/app/state/`): `ErrorState` (done) renders an `App.Error` and backs `src/routes/+error.svelte` and `(dashboard)/+error.svelte`. `Empty`, `Unauthorized`, `Loader` are planned. Use them instead of ad-hoc empty/error markup.
+- **Performance.** No `backdrop-blur`/`blur` on repeated items or sticky/fixed bars. Use `transition-colors`/`-opacity`/`-transform`, not `transition-all`. No looping decorative animations (spinners are fine). A client library over ~10 KB gzip used by one feature (charts, spreadsheet parsing) loads with `import()` when used, never statically in a layout or page.
+- **Strings.** Every user-facing string is `m.*()`, including thrown error messages, `setError()` text, toasts, and **default prop values**. Keys are descriptive snake_case prefixed by feature (`flights_error_conflict`), never random phrase keys.
+
+### Forms (Superforms + Formsnap)
+
+- The component that owns the form (each `*FormSheet.svelte`) calls `superForm(untrack(() => data.form), { validators: zod4Client(schema), … })`. The server uses `zod4(schema)`. Both import the same schema from `#lib/schemas/<service>.schema.js`. Export the schema type beside the schema (`export type FlightFormSchema = typeof flightFormSchema`).
+- Actions check `if (!form.valid) return fail(400, { form })` **before** calling the BL.
+- Status messages go through `onUpdated` / `onError` (`#lib/utils/form-toasts.js`). `onError` is mandatory. Never use `$effect` on `$message`.
+- **Loading state is Superforms' `delayed` store, not `submitting`:**
+  ```ts
+  const { form: formData, message, enhance, delayed } = form;
+  ```
+  Use `disabled={$delayed}` and `{#if $delayed}` for the spinner. `delayed` turns true only after `delayMs` (500 ms by default), so fast submits don't flash a spinner. Double submits are already blocked by `multipleSubmits: 'prevent'` (the default; don't change it). Don't copy loading into `$state` through callbacks or `$effect`.
+- Every field goes through Formsnap: `Form.Field` → `Form.Control` (spread its `props` onto the one focusable element) → `Form.Label` + `Form.FieldErrors`. No hand-rolled label/`aria-invalid`/error markup. Set a custom id on `<Form.Control id="…">`, never by overriding `id` in the spread. Labels that shouldn't show get `class="sr-only"`.
+- `Select`: `name={props.name}` and `bind:value` on `Select.Root`, `{...props}` on `Select.Trigger`, trigger text from a label map with an `m.*()` placeholder. **Exception, placeholder items:** when an item's value isn't a real field value (e.g. `none` for "No team", because an empty item value can't be selected), the root's hidden input would post the placeholder, which the server rejects. Then leave `name` off `Select.Root` and post the real value with `<input type="hidden" name={props.name} value={$formData.x} />` (see `StaffFormSheet.svelte`). `Checkbox`/`Switch`: `bind:checked` on a `z.boolean()` field.
+- Reusable inputs are form-agnostic (`value = $bindable()`, `...restProps`, no superforms import). A reusable field is generic: `<script lang="ts" generics="T extends Record<string, unknown>">` with `form: SuperForm<T>` and `name: FormPathLeaves<T>`.
+- Casted defaults: unselected enum `.default('' as 'first_value')`, empty number input `.default('' as unknown as number)`, must-check box `z.literal(true).default(false as true)`. Don't put a whole-object `.refine()` on a schema with casted defaults.
+- Arrays: `Form.Fieldset` + `Form.ElementField name="items[{i}]"`, bind through the index, add/remove by reassigning the array, give it a `.default([...])`. Nested objects need `dataType: 'json'` (and therefore `use:enhance`).
+- Proxies (`dateProxy`, `intProxy`, …) are created once from the whole `SuperForm`. Programmatic writes that aren't user edits use `fieldProxy(form, 'x', { taint: false })`.
+- One component per form. Two forms with the same schema on a page get distinct `superForm` `id`s.
+
+### Service layer: `<service>.bl.ts` + `<service>.crud.ts`
+
+Every service is a folder `src/lib/server/services/<service>/` (`flights`, `staff`, `teams`, `users`, `imports`, later `assignments`, `attendance`). Its logic and data access always live in separate files:
+
+| File                          | Owns                                                                                                                                                                                                                                                                                                                                                                             | Never                                                                                                        |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `<service>.crud.ts`           | Drizzle queries on its own tables. Reads are `async` functions returning typed rows (`undefined` when missing). Writes **return the unexecuted query** (a `BatchQuery`) so the BL can batch it. Column selections are exported `const` objects. Row types come from them (`Awaited<ReturnType<typeof findFlight>>`) or from `$inferSelect`, never a hand-written interface.      | zod, `m.*()`, `AppError`, permission checks, business rules, `auditInsert`, calling `db.batch`               |
+| `<service>.bl.ts`             | The service's public API: the only file routes import. Takes an `Actor` and typed input. Checks the permission, enforces business rules, throws `AppError` (including `NotFoundError` when a CRUD read returns `undefined`), builds audit rows, runs `db.batch([...crudWrites, auditInsert(...)])` (§6.3), and maps `23505` / `23P01` to `ConflictError`. Explicit return types. | Building queries itself (`db.select`/`insert`/`update`), importing `@sveltejs/kit` or `sveltekit-superforms` |
+| `<name>.ts` (optional helper) | Pure logic the BL uses: parsing, window or coverage calculations                                                                                                                                                                                                                                                                                                                 | DB access                                                                                                    |
+
+- **CRUD holds only what a BL calls today.** Don't scaffold a full create/get/list/update/delete set per table "for later". Add a query when a BL function needs it, and delete it when its last caller goes. Prefer one query shaped for its caller (exact `columns` / `with`, filters in SQL) over a generic one plus mapping in the BL.
+- Routes (`+page.server.ts`, `+layout.server.ts`, `+server.ts`) import only `*.bl.ts`, never `*.crud.ts` or `#lib/server/db`.
+- A BL may read through another service's CRUD (e.g. staff BL checking that a team is active via `teams.crud.ts`). Writes to another service's tables also use that service's CRUD write builders, placed in this BL's batch so the change stays atomic.
+- `BatchQuery` (`Parameters<typeof db.batch>[0][number]`) and `Actor` live in `services/common.ts`.
+
+### Shared zod schemas
+
+- Each service's input schemas are defined **once** in `src/lib/schemas/<service>.schema.ts`. That file is client-safe: no `#lib/server` imports, though `m.*()` messages are fine. The same schema is used by the form component (`zod4Client`), the action (`superValidate(…, zod4(schema))`), and the BL input type (`z.infer<typeof schema>`). Never redeclare an equivalent schema in a route, component or service. The route-level `schema.ts` files (`flights/`, `employees/`, `teams/`, `admin/users/`) are to be migrated.
+- When the form's wire shape differs from the BL input (e.g. `datetime-local` strings → `Date` in Asia/Damascus), the schema file also exports the input schema, derived with `.extend()` / `.omit()`. The action converts, and the BL takes `z.infer` of the input schema.
+- The action validates format (`superValidate`, or `safeParse` with a shared schema for plain actions). The BL checks business rules (existence, ownership, windows, overlaps), not field formats. CRUD imports no zod.
+
+### Backend typing
+
+TypeScript runs with `strict`. Every backend type is derived from Drizzle (row shapes) or zod (input shapes), never re-declared by hand.
+
+- **No `any`, no `!` on query results, no `as` on DB values.** Fix the source instead:
+  - a `text` column holding a closed key set gets `.$type<RoleKey>()` in the schema (e.g. `role.key`, `permission.key`);
+  - a `jsonb` column gets `.$type<T>()` with the stored shape (e.g. `import_row.errors` → `ImportIssue[]`).
+    `.$type` changes no SQL, so `pnpm db:generate` must report no changes.
+  - `as` is allowed only for `as const`, after a runtime check that TS can't follow (comment why), and for library generics such as the `FormPathLeavesWithErrors` cast in `failForm`.
+- **CRUD**: let the query infer its type, then export a named type derived from it, e.g. `export type FlightRow = Awaited<ReturnType<typeof listFlightsByDay>>[number];`. Use `Pick<typeof flight.$inferSelect, …>` for column subsets. Insert and update values are typed `typeof table.$inferInsert` / `Partial<…>`. Write builders are typed `BatchQuery`.
+- **BL**: every exported function declares its return type, built from CRUD types (`Promise<FlightRow>`, `Promise<FlightRow[]>`). Inputs are `z.infer<typeof schema>` plus `Actor`.
+- **Other server modules** (`auth/`, `rbac/`, `audit.ts`, `errors.ts`) also declare return types on exported functions.
+- **Client-facing types** reach components through `./$types` (`PageData`), or through `import type` from the BL/CRUD file when a component needs the row type by name. The hand-written shapes in `src/lib/types/*.ts` are removed as each service is split.
+
+### Services, errors & types
+
+- **Errors (SvelteKit 3 `handleError`).** See "Error handling" below.
+- Types have one source: rows from `typeof table.$inferSelect` or `PageData` (`./$types`), inputs from `z.infer`. Closed sets are `as const` tuples in a client-safe `src/lib/schemas/enums.ts` (planned) that feed `pgEnum(...)`, `z.enum(...)`, and the label functions. Don't hand-write unions that duplicate a `pgEnum` (`src/lib/types/*.ts` is to be migrated).
+- Client files never import runtime values from `#lib/server/**`. `import type` is erased at build and allowed, but prefer `./$types`.
+- Reusable zod primitives (IATA code, flight number, employee no, login ID) live in `src/lib/schemas/primitives.ts` (planned). Service schemas compose them with `.extend()` / `.pick()` / `.omit()`.
+- CRUD write builders return the shape the caller needs via `.returning({...})`, read from the `db.batch` result, not from a follow-up read.
+
+### Error handling (SvelteKit 3)
+
+Every error passes through `handleError` (`src/hooks.server.ts`, `src/hooks.client.ts`), which receives a `kind`: `app` (`error()`), `framework` (404/405/413…), `validation` (remote functions), or `unknown` (anything thrown). `App.Error` is `{ status, message, code }`. `code` is **required**, so every `error(status, m.x(), { code })` call and both hooks set one.
+
+- **Services throw `AppError`** (`#lib/server/errors.ts`): `InvalidInputError` (400), `ForbiddenError` (403), `NotFoundError` (404), `ConflictError` (409, uniqueness `23505` / overlap `23P01` / blocking state), or `AppError` directly for another status. Each carries a stable `code` and a localized `m.*()` message built at throw time. The optional `field` names the service input at fault. Never `throw new Error('…')` or return a silent `null`.
+- **Loads and `+server.ts`: don't catch.** `handleError` maps an `AppError` (kind `unknown`) to its status, code and message. `+error.svelte` renders it, or the client gets JSON. An unmapped `23P01` still becomes a 409 `conflict` (§6.2). Anything else is logged (Drizzle query params stripped, §8) and shown as 500 `internal`.
+- **Actions: catch and return.** Superforms: `catch (cause) { return failForm(form, cause); }` sets a field error when the form has `cause.field`, otherwise an error status message. Plain actions that toast `notice`: `return failNotice(cause)`. Both rethrow anything that isn't an `AppError`. Never call `error()` for an expected failure in an action. It replaces the page instead of reporting on the form.
+- **Guards** (`requireSignedIn` / `requireUser` / `requirePermission`) keep using SvelteKit's `redirect()` / `error()`. Keep `redirect()` out of a `try` whose `catch` doesn't rethrow non-`AppError`s.
+- **Error UI**: `src/routes/+error.svelte` (outside the shell, and errors from the `(dashboard)` layout load), `(dashboard)/+error.svelte` (page errors, inside the sidebar), `src/error.html` (errors in `handle` or the root layout). For one widget, use `<svelte:boundary>` with `{#snippet failed(error: App.Error)}`.
+
 ## 4. Directory layout (current + planned)
 
 ```
@@ -63,8 +147,13 @@ src/lib/server/db/               index.ts (Drizzle client), schema/{auth,rbac,au
 src/lib/server/auth/             login, session, jwt, credentials (6-digit codes), password (Argon2), rate-limit, api
 src/lib/server/rbac/             permissions.ts (keys, role scopes), guard.ts (requireSignedIn / requireUser / requirePermission)
 src/lib/server/audit.ts          auditInsert() for db.batch
-src/lib/server/services/         business logic, no HTTP: users.ts (done); flights, assignments, attendance, imports (planned)
-src/lib/components/ui/           shadcn-svelte components (generated, edit sparingly)
+src/lib/server/errors.ts         AppError + subclasses, failForm() / failNotice() for actions
+src/lib/errors.ts                client-safe frameworkError() / internalError(), shared by both handleError hooks
+src/hooks.client.ts              client handleError;  src/error.html  static fallback for handle/root-layout errors
+src/lib/server/services/         common.ts (Actor, BatchQuery, pgErrorCode); one folder per service with <service>.bl.ts + <service>.crud.ts (§3)
+                                   current flat files users/flights/staff/teams/imports.ts are to be split; assignments, attendance planned
+src/lib/components/ui/           shadcn-svelte components (generated; wrap in src/lib/app/ instead of editing, §3)
+src/lib/schemas/                 client-safe zod, one <service>.schema.ts per service (auth.schema.ts done); enums.ts, primitives.ts (planned, §3)
 src/lib/app/                     app-specific components (layout shell, UserMenu, nav)
 src/routes/(app)/                authenticated area with the top Header; +layout.server.ts requires a session
 src/routes/(dashboard)/          authenticated area with the sidebar: dashboard/, employees/, admin/users/
@@ -75,8 +164,8 @@ scripts/                         auth CLI (create-admin, issue-code), run with t
 messages/                        en.json, ar.json
 ```
 
-- Route `load` functions and `actions` stay thin. They parse input, call a service, and map errors.
-- Services receive an `actor` (current user + permissions). Each one performs the permission check, the mutation, and the audit write.
+- Route `load` functions and `actions` stay thin. They validate input with the shared schema, call a `*.bl.ts` function, and return `failForm` / `failNotice` on an `AppError`.
+- BL functions receive an `actor` (current user + permissions). Each one performs the permission check, the mutation (through CRUD write builders), and the audit write in one `db.batch`.
 - Everything touching the DB lives under `src/lib/server/` so it can never be bundled to the client.
 
 ## 5. Domain model
@@ -108,7 +197,7 @@ These descriptions are **proposed defaults**. The final permission matrix is sti
 
 ## 6. Non-negotiable rules
 
-1. **Enforce permissions on the server.** Every `load` and action calls `requirePermission(locals, '<key>')`, or the service it delegates to does. Hiding buttons is cosmetic only: a Viewer posting to any action must get 403.
+1. **Enforce permissions on the server.** Every `load`, action, and `+server.ts` handler calls `requirePermission(locals, '<key>')`, or the service it delegates to does. Hiding buttons is cosmetic only: a Viewer posting to any action must get 403.
 2. **No silent double-booking.** Overlapping assignments for the same staff member are rejected by a Postgres exclusion constraint (§7). The app also pre-checks to show a friendly message. Map SQLSTATE `23P01` to a localized conflict error and never swallow it.
 3. **Audit every mutation.** Changes to flights, assignments, attendance, staff, roles/permissions, settings, and imports write an `audit_log` row **in the same `db.batch([...])`** as the change. Manual overrides (window override, forced assignment, attendance correction) require a `reason`.
 4. **Time.** Store all instants as `timestamptz` (UTC). Display and enter them in **`Asia/Damascus`** via `@internationalized/date`. Never use naive timestamps or rely on server-local time (Vercel runs in UTC).
