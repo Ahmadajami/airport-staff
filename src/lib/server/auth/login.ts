@@ -1,18 +1,17 @@
 import { eq, sql } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.js';
 import { user } from '#lib/server/db/schema/index.js';
-import type { RoleKey } from '#lib/server/rbac/permissions.js';
-import { MAX_CONSECUTIVE_CODE_FAILURES, credentialKindForRole } from './credentials.js';
+import { MAX_CONSECUTIVE_CODE_FAILURES } from './credentials.js';
 import { verifyDummyPassword, verifyPassword } from './password.js';
 import { isLoginRateLimited, recordLoginAttempt } from './rate-limit.js';
 import { createSession, type RequestMeta, type SessionClient } from './session.js';
 
 export type LoginFailure =
-	/** Unknown ID, inactive account, or wrong secret. Deliberately one reason. */
+	/** Unknown ID, inactive account, or wrong code. Deliberately one reason. */
 	| 'invalid'
 	/** Too many recent failures for this ID or IP. */
 	| 'rate_limited'
-	/** Code account locked after too many consecutive wrong codes; needs a new code. */
+	/** Locked after too many consecutive wrong codes; needs a new code. */
 	| 'locked'
 	/** Correct code, but it has expired; needs a new code. */
 	| 'code_expired';
@@ -26,11 +25,10 @@ export type LoginResult =
 			/** Secret for the cookie (web) or the refresh token (api). Send once, never store. */
 			token: string;
 			expiresAt: Date;
-			mustChangePassword: boolean;
 	  };
 
 /**
- * Check an ID + secret (6-digit code or password) and open a session. Shared by the web `/login`
+ * Check an ID + 6-digit code and open a session. Shared by the web `/login`
  * action and the token API, so both get the same rate limit, lockout, and expiry rules.
  * `loginId` must already be normalised to ASCII digits.
  */
@@ -50,10 +48,8 @@ export async function authenticate(
 			passwordHash: true,
 			passwordExpiresAt: true,
 			failedLoginCount: true,
-			lockedAt: true,
-			mustChangePassword: true
-		},
-		with: { role: { columns: { key: true } } }
+			lockedAt: true
+		}
 	});
 
 	const failed = recordLoginAttempt({ loginId, ip: meta.ip, success: false });
@@ -73,17 +69,14 @@ export async function authenticate(
 	}
 
 	if (!valid) {
-		const isCode = credentialKindForRole(account.role.key as RoleKey) === 'code';
-		const nowLocked = isCode && account.failedLoginCount + 1 >= MAX_CONSECUTIVE_CODE_FAILURES;
+		const nowLocked = account.failedLoginCount + 1 >= MAX_CONSECUTIVE_CODE_FAILURES;
 		await db.batch([
 			failed,
 			db
 				.update(user)
 				.set({
 					failedLoginCount: sql`${user.failedLoginCount} + 1`,
-					...(isCode && {
-						lockedAt: sql`case when ${user.failedLoginCount} + 1 >= ${MAX_CONSECUTIVE_CODE_FAILURES} then coalesce(${user.lockedAt}, now()) else ${user.lockedAt} end`
-					})
+					lockedAt: sql`case when ${user.failedLoginCount} + 1 >= ${MAX_CONSECUTIVE_CODE_FAILURES} then coalesce(${user.lockedAt}, now()) else ${user.lockedAt} end`
 				})
 				.where(eq(user.id, account.id))
 		]);
@@ -108,7 +101,6 @@ export async function authenticate(
 		userId: account.id,
 		sessionId: session.id,
 		token: session.token,
-		expiresAt: session.expiresAt,
-		mustChangePassword: account.mustChangePassword
+		expiresAt: session.expiresAt
 	};
 }

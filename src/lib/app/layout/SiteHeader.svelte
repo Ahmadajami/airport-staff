@@ -6,7 +6,11 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import { deLocalizeHref } from '#lib/paraglide/runtime.js';
 	import { dashboardNav } from './nav.js';
+	import type { SessionUser } from '#lib/server/auth/session.js';
 	import LocaleSwitcher from './LocaleSwitcher.svelte';
+	import UserMenu from './UserMenu.svelte';
+
+	let { user }: { user: SessionUser } = $props();
 
 	const currentPath = $derived(deLocalizeHref(page.url.pathname));
 	const title = $derived(
@@ -26,6 +30,7 @@
 			<AnimatedThemeToggler
 				class="inline-flex size-8 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&_svg]:size-4"
 			/>
+			<UserMenu {user} />
 		</div>
 	</div>
 </header>

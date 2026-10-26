@@ -28,15 +28,16 @@ export const user = pgTable(
 			.notNull()
 			.references(() => role.id, { onDelete: 'restrict' }),
 		active: boolean('active').notNull().default(true),
+		// Argon2id hash of the account's current 6-digit sign-in code. Users never choose or change
+		// it; an admin (or `pnpm auth:issue-code`) issues a new one.
 		passwordHash: text('password_hash').notNull(),
-		// True after creation and after every reset: the one-time password must be replaced.
-		mustChangePassword: boolean('must_change_password').notNull().default(true),
+		// When the current code was issued.
 		passwordChangedAt: timestamp('password_changed_at', { withTimezone: true }),
-		// Set for issued 6-digit codes (employee roles); null for admin / manager passwords.
+		// When the current code stops working (and every session opened with it).
 		passwordExpiresAt: timestamp('password_expires_at', { withTimezone: true }),
-		// Consecutive wrong secrets; reset on success or when a new code is issued.
+		// Consecutive wrong codes; reset on success or when a new code is issued.
 		failedLoginCount: integer('failed_login_count').notNull().default(0),
-		// Code accounts lock after too many consecutive failures until a new code is issued.
+		// Set after too many consecutive wrong codes; cleared when a new code is issued.
 		lockedAt: timestamp('locked_at', { withTimezone: true }),
 		lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
 		createdBy: uuid('created_by').references((): AnyPgColumn => user.id, {

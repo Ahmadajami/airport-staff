@@ -10,7 +10,11 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import { deLocalizeHref } from '#lib/paraglide/runtime.js';
 	import { cn } from '#lib/utils.js';
+	import type { SessionUser } from '#lib/server/auth/session.js';
 	import LocaleSwitcher from './LocaleSwitcher.svelte';
+	import UserMenu from './UserMenu.svelte';
+
+	let { user }: { user: SessionUser } = $props();
 
 	const navRoutes: { path: AppPath; label: string }[] = [
 		{ path: '/', label: m.nav_home() },
@@ -19,7 +23,6 @@
 	const navItems = navRoutes.map((item) => ({ ...item, href: localizedHref(item.path) }));
 
 	const homeHref = localizedHref('/');
-	const loginHref = localizedHref('/login');
 	const currentPath = $derived(deLocalizeHref(page.url.pathname));
 
 	const id = $props.id();
@@ -71,7 +74,7 @@
 				class="inline-flex size-8 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&_svg]:size-4"
 			/>
 
-			<Button href={loginHref} size="sm" class="hidden md:inline-flex">{m.nav_login()}</Button>
+			<UserMenu {user} />
 
 			<Button
 				bind:ref={menuButton}
@@ -109,9 +112,6 @@
 					</a>
 				</li>
 			{/each}
-			<li class="pt-2">
-				<Button href={loginHref} class="w-full">{m.nav_login()}</Button>
-			</li>
 		</ul>
 	</nav>
 </header>

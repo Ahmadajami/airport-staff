@@ -4,7 +4,7 @@
 	import SiteHeader from '#lib/app/layout/SiteHeader.svelte';
 	import type { LayoutProps } from './$types';
 
-	let { children }: LayoutProps = $props();
+	let { data, children }: LayoutProps = $props();
 </script>
 
 <Sidebar.Provider
@@ -12,7 +12,7 @@
 >
 	<AppSidebar variant="inset" />
 	<Sidebar.Inset>
-		<SiteHeader />
+		<SiteHeader user={data.user} />
 		<main class="@container/main flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
 			{@render children()}
 		</main>

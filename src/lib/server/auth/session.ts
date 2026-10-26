@@ -5,7 +5,6 @@ import { dev } from '$app/env';
 import { db } from '#lib/server/db/index.js';
 import { session, type sessionClient } from '#lib/server/db/schema/index.js';
 import type { PermissionKey, RoleKey } from '#lib/server/rbac/permissions.js';
-import { credentialKindForRole, type CredentialKind } from './credentials.js';
 
 export type SessionClient = (typeof sessionClient.enumValues)[number];
 
@@ -28,11 +27,8 @@ export type AuthUser = {
 	fullName: string;
 	fullNameAr: string | null;
 	role: { key: RoleKey; nameEn: string; nameAr: string };
-	/** `code`: issued 6-digit code, can't be changed by the user. `password`: admin / manager. */
-	credential: CredentialKind;
-	/** When the issued code stops working (and every session with it). `null` for passwords. */
+	/** When the issued sign-in code stops working (and every session with it). */
 	credentialExpiresAt: Date | null;
-	mustChangePassword: boolean;
 };
 
 export type AuthSession = {
@@ -48,6 +44,23 @@ export type ValidatedSession = {
 	/** `expiresAt` was pushed forward; a cookie session must re-send its cookie. */
 	renewed: boolean;
 };
+
+/**
+ * What layouts send to the browser about the signed-in user: display fields and permission keys
+ * (for hiding UI only; the server re-checks every action). No secrets, no session data.
+ */
+export function toSessionUser(user: AuthUser, permissions: ReadonlySet<PermissionKey>) {
+	return {
+		loginId: user.loginId,
+		fullName: user.fullName,
+		fullNameAr: user.fullNameAr,
+		role: user.role,
+		credentialExpiresAt: user.credentialExpiresAt,
+		permissions: [...permissions]
+	};
+}
+
+export type SessionUser = ReturnType<typeof toSessionUser>;
 
 /** 256-bit random secret for the cookie or the refresh token. Never stored. */
 export function generateSessionToken(): string {
@@ -117,7 +130,6 @@ export async function validateSession(
 					fullName: true,
 					fullNameAr: true,
 					active: true,
-					mustChangePassword: true,
 					passwordExpiresAt: true
 				},
 				with: {
@@ -164,9 +176,7 @@ export async function validateSession(
 			fullName: u.fullName,
 			fullNameAr: u.fullNameAr,
 			role: { key: roleKey, nameEn: role.nameEn, nameAr: role.nameAr },
-			credential: credentialKindForRole(roleKey),
-			credentialExpiresAt: codeExpiresAt,
-			mustChangePassword: u.mustChangePassword
+			credentialExpiresAt: codeExpiresAt
 		},
 		session: { id: row.id, client: row.client, expiresAt },
 		permissions: new Set(role.rolePermissions.map((rp) => rp.permission.key as PermissionKey)),
