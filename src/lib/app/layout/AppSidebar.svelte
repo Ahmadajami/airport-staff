@@ -4,13 +4,20 @@
 	import * as Sidebar from '#lib/components/ui/sidebar/index.js';
 	import { localizedHref } from '#lib/i18n.js';
 	import { m } from '#lib/paraglide/messages.js';
+	import { getLocale, getTextDirection } from '#lib/paraglide/runtime.js';
 	import { dashboardNav } from './nav.js';
 	import NavMain from './NavMain.svelte';
 
 	let { ...restProps }: ComponentProps<typeof Sidebar.Root> = $props();
+
+	const sidebar = Sidebar.useSidebar();
+	// Desktop: `left` is the logical start, so it mirrors under dir="rtl" on its own.
+	// Mobile: the Sheet uses physical sides, so pick one from the text direction.
+	const rtl = getTextDirection(getLocale()) === 'rtl';
+	const side = $derived(sidebar.isMobile ? (rtl ? 'right' : 'left') : undefined);
 </script>
 
-<Sidebar.Root collapsible="offcanvas" {...restProps}>
+<Sidebar.Root collapsible="offcanvas" {...restProps} {side}>
 	<Sidebar.Header>
 		<Sidebar.Menu>
 			<Sidebar.MenuItem>
