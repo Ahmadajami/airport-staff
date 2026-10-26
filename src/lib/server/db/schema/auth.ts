@@ -3,6 +3,7 @@ import {
 	boolean,
 	check,
 	index,
+	integer,
 	pgEnum,
 	pgTable,
 	text,
@@ -31,6 +32,12 @@ export const user = pgTable(
 		// True after creation and after every reset: the one-time password must be replaced.
 		mustChangePassword: boolean('must_change_password').notNull().default(true),
 		passwordChangedAt: timestamp('password_changed_at', { withTimezone: true }),
+		// Set for issued 6-digit codes (employee roles); null for admin / manager passwords.
+		passwordExpiresAt: timestamp('password_expires_at', { withTimezone: true }),
+		// Consecutive wrong secrets; reset on success or when a new code is issued.
+		failedLoginCount: integer('failed_login_count').notNull().default(0),
+		// Code accounts lock after too many consecutive failures until a new code is issued.
+		lockedAt: timestamp('locked_at', { withTimezone: true }),
 		lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
 		createdBy: uuid('created_by').references((): AnyPgColumn => user.id, {
 			onDelete: 'set null'
@@ -43,7 +50,8 @@ export const user = pgTable(
 	},
 	(t) => [
 		index('user_role_id_idx').on(t.roleId),
-		check('user_login_id_digits', sql`${t.loginId} ~ '^[0-9]+$'`)
+		check('user_login_id_digits', sql`${t.loginId} ~ '^[0-9]+$'`),
+		check('user_failed_login_count_non_negative', sql`${t.failedLoginCount} >= 0`)
 	]
 );
 

@@ -5,6 +5,7 @@ import { dev } from '$app/env';
 import { db } from '#lib/server/db/index.js';
 import { session, type sessionClient } from '#lib/server/db/schema/index.js';
 import type { PermissionKey, RoleKey } from '#lib/server/rbac/permissions.js';
+import { credentialKindForRole, type CredentialKind } from './credentials.js';
 
 export type SessionClient = (typeof sessionClient.enumValues)[number];
 
@@ -27,6 +28,10 @@ export type AuthUser = {
 	fullName: string;
 	fullNameAr: string | null;
 	role: { key: RoleKey; nameEn: string; nameAr: string };
+	/** `code`: issued 6-digit code, can't be changed by the user. `password`: admin / manager. */
+	credential: CredentialKind;
+	/** When the issued code stops working (and every session with it). `null` for passwords. */
+	credentialExpiresAt: Date | null;
 	mustChangePassword: boolean;
 };
 
@@ -66,14 +71,26 @@ export function requestMeta(event: RequestEvent): RequestMeta {
 	return { ip, userAgent: event.request.headers.get('user-agent')?.slice(0, 512) ?? null };
 }
 
+/** `now + ttl`, but never past `notAfter` (the expiry of the user's issued code). */
+function cappedExpiry(now: number, ttl: number, notAfter: Date | null): Date {
+	const expiry = now + ttl;
+	return new Date(notAfter ? Math.min(expiry, notAfter.getTime()) : expiry);
+}
+
 /**
  * Build a new session. Returns the secret `token` (send it to the client, once) and the insert
  * `query`, which the caller runs inside its `db.batch([...])` with the audit / login-attempt rows.
+ * `notAfter` is the user's code expiry: a session never outlives the code it was opened with.
  */
-export function createSession(userId: string, client: SessionClient, meta: RequestMeta) {
+export function createSession(
+	userId: string,
+	client: SessionClient,
+	meta: RequestMeta,
+	notAfter: Date | null
+) {
 	const token = generateSessionToken();
 	const id = sessionIdFromToken(token);
-	const expiresAt = new Date(Date.now() + SESSION_TTL_MS[client]);
+	const expiresAt = cappedExpiry(Date.now(), SESSION_TTL_MS[client], notAfter);
 	const query = db
 		.insert(session)
 		.values({ id, userId, client, expiresAt, ip: meta.ip, userAgent: meta.userAgent });
@@ -82,8 +99,8 @@ export function createSession(userId: string, client: SessionClient, meta: Reque
 
 /**
  * Load a session with its user, role and permissions in one query. Returns `null` (and deletes
- * the row when it is dead) if the session is missing, of the wrong client type, expired, or
- * belongs to a deactivated user.
+ * the row when it is dead) if the session is missing, of the wrong client type, expired, belongs
+ * to a deactivated user, or the user's issued code has expired.
  */
 export async function validateSession(
 	sessionId: string,
@@ -100,7 +117,8 @@ export async function validateSession(
 					fullName: true,
 					fullNameAr: true,
 					active: true,
-					mustChangePassword: true
+					mustChangePassword: true,
+					passwordExpiresAt: true
 				},
 				with: {
 					role: {
@@ -115,7 +133,12 @@ export async function validateSession(
 	if (!row || row.client !== client) return null;
 
 	const now = Date.now();
-	if (row.expiresAt.getTime() <= now || !row.user.active) {
+	const codeExpiresAt = row.user.passwordExpiresAt;
+	if (
+		row.expiresAt.getTime() <= now ||
+		!row.user.active ||
+		(codeExpiresAt && codeExpiresAt.getTime() <= now)
+	) {
 		await invalidateSession(row.id);
 		return null;
 	}
@@ -124,19 +147,25 @@ export async function validateSession(
 	let renewed = false;
 	const ttl = SESSION_TTL_MS[client];
 	if (client === 'web' && expiresAt.getTime() - now < ttl / 2) {
-		expiresAt = new Date(now + ttl);
-		await db.update(session).set({ expiresAt }).where(eq(session.id, row.id));
-		renewed = true;
+		const next = cappedExpiry(now, ttl, codeExpiresAt);
+		if (next > expiresAt) {
+			expiresAt = next;
+			await db.update(session).set({ expiresAt }).where(eq(session.id, row.id));
+			renewed = true;
+		}
 	}
 
 	const { role, ...u } = row.user;
+	const roleKey = role.key as RoleKey;
 	return {
 		user: {
 			id: u.id,
 			loginId: u.loginId,
 			fullName: u.fullName,
 			fullNameAr: u.fullNameAr,
-			role: { key: role.key as RoleKey, nameEn: role.nameEn, nameAr: role.nameAr },
+			role: { key: roleKey, nameEn: role.nameEn, nameAr: role.nameAr },
+			credential: credentialKindForRole(roleKey),
+			credentialExpiresAt: codeExpiresAt,
 			mustChangePassword: u.mustChangePassword
 		},
 		session: { id: row.id, client: row.client, expiresAt },
