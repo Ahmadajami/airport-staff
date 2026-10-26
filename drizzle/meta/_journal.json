@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1793002755403,
+      "tag": "0000_auth_rbac_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793002768098,
+      "tag": "0001_seed_rbac",
+      "breakpoints": true
+    }
+  ]
+}
