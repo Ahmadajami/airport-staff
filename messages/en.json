@@ -48,5 +48,8 @@
 	"function_ramp": "Ramp",
 	"function_baggage": "Baggage",
 	"function_check_in": "Check-in",
-	"function_gate": "Gate"
+	"function_gate": "Gate",
+	"auth_unauthenticated": "Please sign in to continue.",
+	"auth_forbidden": "You do not have permission to do this.",
+	"auth_password_change_required": "Change your one-time password before continuing."
 }

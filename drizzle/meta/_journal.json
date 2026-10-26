@@ -15,6 +15,13 @@
       "when": 1793002768098,
       "tag": "0001_seed_rbac",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793004701087,
+      "tag": "0002_session_client",
+      "breakpoints": true
     }
   ]
 }

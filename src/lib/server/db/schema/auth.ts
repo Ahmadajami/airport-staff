@@ -3,6 +3,7 @@ import {
 	boolean,
 	check,
 	index,
+	pgEnum,
 	pgTable,
 	text,
 	timestamp,
@@ -46,7 +47,13 @@ export const user = pgTable(
 	]
 );
 
-/** `id` is the SHA-256 (hex) of the cookie token, so a leaked table can't be replayed. */
+/** `web` = SSR cookie session; `api` = refresh-token session behind short-lived access JWTs. */
+export const sessionClient = pgEnum('session_client', ['web', 'api']);
+
+/**
+ * `id` is the SHA-256 (hex) of the secret token (cookie value or refresh token), so a leaked
+ * table can't be replayed. Access JWTs carry it as `sid` and are only valid while the row exists.
+ */
 export const session = pgTable(
 	'session',
 	{
@@ -54,6 +61,7 @@ export const session = pgTable(
 		userId: uuid('user_id')
 			.notNull()
 			.references(() => user.id, { onDelete: 'cascade' }),
+		client: sessionClient('client').notNull().default('web'),
 		expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
 		ip: text('ip'),
 		userAgent: text('user_agent'),
