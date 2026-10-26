@@ -52,6 +52,7 @@
 		"globals": "^17.6.0",
 		"layerchart": "^2.9.1",
 		"mode-watcher": "^1.1.0",
+		"paneforge": "^1.0.2",
 		"phosphor-svelte": "^3.1.1",
 		"prettier": "^3.8.3",
 		"prettier-plugin-svelte": "^4.1.0",
@@ -77,6 +78,7 @@
 		"#lib/*": "./src/lib/*"
 	},
 	"dependencies": {
+		"@node-rs/argon2": "^2.2.2",
 		"motion-sv": "^0.2.2",
 		"zod": "^4.6.7"
 	}

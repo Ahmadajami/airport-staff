@@ -8,17 +8,18 @@
 	import { AnimatedThemeToggler } from '#lib/components/magic/animated-theme-toggler/index.js';
 	import { localizedHref, type AppPath } from '#lib/i18n.js';
 	import { m } from '#lib/paraglide/messages.js';
-	import { deLocalizeHref, getLocale, locales, setLocale } from '#lib/paraglide/runtime.js';
+	import { deLocalizeHref } from '#lib/paraglide/runtime.js';
 	import { cn } from '#lib/utils.js';
+	import LocaleSwitcher from './LocaleSwitcher.svelte';
 
-	const navRoutes: { path: AppPath; label: string }[] = [{ path: '/', label: m.nav_home() }];
+	const navRoutes: { path: AppPath; label: string }[] = [
+		{ path: '/', label: m.nav_home() },
+		{ path: '/dashboard', label: m.nav_dashboard() }
+	];
 	const navItems = navRoutes.map((item) => ({ ...item, href: localizedHref(item.path) }));
-
-	const localeLabels: Record<(typeof locales)[number], string> = { en: 'EN', ar: 'ع' };
 
 	const homeHref = localizedHref('/');
 	const loginHref = localizedHref('/login');
-	const currentLocale = getLocale();
 	const currentPath = $derived(deLocalizeHref(page.url.pathname));
 
 	const id = $props.id();
@@ -64,19 +65,7 @@
 		</nav>
 
 		<div class="ms-auto flex items-center gap-1">
-			<div role="group" aria-label={m.language_switch()} class="flex border">
-				{#each locales as locale (locale)}
-					<button
-						type="button"
-						lang={locale}
-						aria-pressed={locale === currentLocale}
-						onclick={() => setLocale(locale)}
-						class="h-7 min-w-8 px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-pressed:bg-primary aria-pressed:text-primary-foreground"
-					>
-						{localeLabels[locale]}
-					</button>
-				{/each}
-			</div>
+			<LocaleSwitcher />
 
 			<AnimatedThemeToggler
 				class="inline-flex size-8 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&_svg]:size-4"
