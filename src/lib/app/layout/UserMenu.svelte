@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { DateFormatter } from '@internationalized/date';
 	import ClockIcon from 'phosphor-svelte/lib/ClockIcon';
 	import SignOutIcon from 'phosphor-svelte/lib/SignOutIcon';
 	import * as Avatar from '#lib/components/ui/avatar/index.js';
@@ -10,6 +9,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import type { SessionUser } from '#lib/server/auth/session.js';
+	import { formatDateTime } from '#lib/utils/datetime.js';
 
 	let { user }: { user: SessionUser } = $props();
 
@@ -26,14 +26,8 @@
 			.toUpperCase()
 	);
 
-	// Shown in Damascus time whatever the device's time zone (CLAUDE.md §6.4).
-	const expiryFormatter = new DateFormatter(locale, {
-		dateStyle: 'medium',
-		timeStyle: 'short',
-		timeZone: 'Asia/Damascus'
-	});
 	const codeExpiry = $derived(
-		user.credentialExpiresAt ? expiryFormatter.format(user.credentialExpiresAt) : null
+		user.credentialExpiresAt ? formatDateTime(user.credentialExpiresAt) : null
 	);
 
 	let logoutForm: HTMLFormElement | null = $state(null);

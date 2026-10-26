@@ -1,19 +1,25 @@
 import { and, eq, gt, or, sql } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.js';
-import { loginAttempt } from '#lib/server/db/schema/index.js';
+import { loginAttempt, user } from '#lib/server/db/schema/index.js';
 
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_FAILURES_PER_LOGIN_ID = 5;
 const MAX_FAILURES_PER_IP = 20;
 
-/** True when this ID or IP has too many recent failed sign-ins (web login and token API). */
+/**
+ * True when this ID or IP has too many recent failed sign-ins (web login and token API).
+ * Per-ID failures only count since the account's current code was issued, so issuing a new code
+ * to a locked-out user lets them in straight away instead of after the window.
+ */
 export async function isLoginRateLimited(loginId: string, ip: string | null): Promise<boolean> {
 	const since = new Date(Date.now() - WINDOW_MS);
+	const codeIssuedAt = sql`(select ${user.passwordChangedAt} from ${user} where ${user.loginId} = ${loginId})`;
 	const [counts] = await db
 		.select({
-			byLoginId: sql<number>`count(*) filter (where ${loginAttempt.loginId} = ${loginId})`.mapWith(
-				Number
-			),
+			byLoginId:
+				sql<number>`count(*) filter (where ${loginAttempt.loginId} = ${loginId} and ${loginAttempt.attemptedAt} > greatest(${since}, ${codeIssuedAt}))`.mapWith(
+					Number
+				),
 			byIp: ip
 				? sql<number>`count(*) filter (where ${loginAttempt.ip} = ${ip})`.mapWith(Number)
 				: sql<number>`0`.mapWith(Number)

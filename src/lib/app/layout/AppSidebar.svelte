@@ -5,10 +5,16 @@
 	import { localizedHref } from '#lib/i18n.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale, getTextDirection } from '#lib/paraglide/runtime.js';
+	import type { SessionUser } from '#lib/server/auth/session.js';
 	import { dashboardNav } from './nav.js';
 	import NavMain from './NavMain.svelte';
 
-	let { ...restProps }: ComponentProps<typeof Sidebar.Root> = $props();
+	let { user, ...restProps }: ComponentProps<typeof Sidebar.Root> & { user: SessionUser } =
+		$props();
+
+	const navItems = $derived(
+		dashboardNav.filter((item) => !item.permission || user.permissions.includes(item.permission))
+	);
 
 	const sidebar = Sidebar.useSidebar();
 	// Desktop: `left` is the logical start, so it mirrors under dir="rtl" on its own.
@@ -33,6 +39,6 @@
 		</Sidebar.Menu>
 	</Sidebar.Header>
 	<Sidebar.Content>
-		<NavMain items={dashboardNav} />
+		<NavMain items={navItems} />
 	</Sidebar.Content>
 </Sidebar.Root>

@@ -48,7 +48,14 @@ export async function authenticate(
 	client: SessionClient,
 	meta: RequestMeta
 ): Promise<LoginResult> {
-	if (await isLoginRateLimited(loginId, meta.ip)) return { ok: false, reason: 'rate_limited' };
+	if (await isLoginRateLimited(loginId, meta.ip)) {
+		// A locked account hits the rate limit too; "locked" tells the user what actually helps.
+		const blocked = await db.query.user.findFirst({
+			where: eq(user.loginId, loginId),
+			columns: { lockedAt: true }
+		});
+		return { ok: false, reason: blocked?.lockedAt ? 'locked' : 'rate_limited' };
+	}
 
 	const account = await db.query.user.findFirst({
 		where: eq(user.loginId, loginId),
