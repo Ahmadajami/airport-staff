@@ -59,5 +59,7 @@
 	"logout": "تسجيل الخروج",
 	"user_menu_open": "قائمة الحساب",
 	"user_menu_id": "الرقم",
-	"user_code_expires": "الرمز صالح حتى"
+	"user_code_expires": "الرمز صالح حتى",
+	"api_invalid_request": "بيانات الطلب غير صالحة.",
+	"api_invalid_token": "رمز التحديث غير صالح أو منتهي الصلاحية. سجّل الدخول مجددًا."
 }

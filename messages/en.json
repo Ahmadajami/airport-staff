@@ -59,5 +59,7 @@
 	"logout": "Sign out",
 	"user_menu_open": "Account menu",
 	"user_menu_id": "ID",
-	"user_code_expires": "Code valid until"
+	"user_code_expires": "Code valid until",
+	"api_invalid_request": "The request body is invalid.",
+	"api_invalid_token": "The refresh token is invalid or has expired. Sign in again."
 }
