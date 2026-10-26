@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { cn } from '#lib/utils';
+	import { cn } from '#lib/utils.js';
 	import type { HTMLAttributes } from 'svelte/elements';
 
 	let { class: className, children, ...rest }: HTMLAttributes<HTMLDivElement> = $props();
@@ -8,7 +8,7 @@
 <div
 	data-slot="stepper-description"
 	class={cn(
-		'text-muted-foreground text-sm',
+		'text-sm text-muted-foreground',
 		'group-data-[orientation=vertical]/stepper-nav:text-left',
 		'group-data-[orientation=horizontal]/stepper-nav:text-center',
 		className
