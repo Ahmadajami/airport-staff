@@ -4,8 +4,13 @@ import { db } from '#lib/server/db/index.js';
 import { user } from '#lib/server/db/schema/index.js';
 import { MAX_CONSECUTIVE_CODE_FAILURES } from './credentials.js';
 import { verifyDummyPassword, verifyPassword } from './password.js';
-import { isLoginRateLimited, recordLoginAttempt } from './rate-limit.js';
-import { createSession, type RequestMeta, type SessionClient } from './session.js';
+import { deleteOldLoginAttempts, isLoginRateLimited, recordLoginAttempt } from './rate-limit.js';
+import {
+	createSession,
+	deleteExpiredSessions,
+	type RequestMeta,
+	type SessionClient
+} from './session.js';
 
 export type LoginFailure =
 	/** Unknown ID, inactive account, or wrong code. Deliberately one reason. */
@@ -110,7 +115,10 @@ export async function authenticate(
 	await db.batch([
 		session.query,
 		recordLoginAttempt({ loginId, ip: meta.ip, success: true }),
-		db.update(user).set({ failedLoginCount: 0, lastLoginAt: now }).where(eq(user.id, account.id))
+		db.update(user).set({ failedLoginCount: 0, lastLoginAt: now }).where(eq(user.id, account.id)),
+		// Housekeeping rides along with sign-ins: no cron job needed at this scale.
+		deleteExpiredSessions(),
+		deleteOldLoginAttempts()
 	]);
 
 	return {

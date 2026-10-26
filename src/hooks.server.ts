@@ -1,4 +1,5 @@
 import { sequence, type Handle } from '@sveltejs/kit/hooks';
+import { dev } from '$app/env';
 import { getTextDirection } from '#lib/paraglide/runtime.js';
 import { paraglideMiddleware } from '#lib/paraglide/server.js';
 import { bearerToken, verifyAccessToken } from '#lib/server/auth/jwt.js';
@@ -66,4 +67,28 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle: Handle = sequence(handleParaglide, handleAuth);
+/**
+ * Baseline security headers on every response. Framing is denied so no other site can overlay
+ * the admin screens (e.g. issuing sign-in codes); HSTS only outside dev, where there is no HTTPS.
+ */
+const handleSecurityHeaders: Handle = async ({ event, resolve }) => {
+	const response = await resolve(event);
+	const headers: Record<string, string> = {
+		'x-frame-options': 'DENY',
+		'content-security-policy': "frame-ancestors 'none'",
+		'x-content-type-options': 'nosniff',
+		'referrer-policy': 'strict-origin-when-cross-origin'
+	};
+	if (!dev) headers['strict-transport-security'] = 'max-age=31536000; includeSubDomains';
+	for (const [name, value] of Object.entries(headers)) {
+		// Redirects and some responses come with immutable headers; skip those quietly.
+		try {
+			response.headers.set(name, value);
+		} catch {
+			break;
+		}
+	}
+	return response;
+};
+
+export const handle: Handle = sequence(handleSecurityHeaders, handleParaglide, handleAuth);
