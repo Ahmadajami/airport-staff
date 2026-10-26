@@ -1,3 +1,4 @@
+<!-- Local RTL edit: logical start/end utilities instead of left/right. Re-apply after regenerating with shadcn-svelte. -->
 <script lang="ts">
 	import SidebarIcon from 'phosphor-svelte/lib/Sidebar';
 	import { Button } from "#lib/components/ui/button/index.js";
@@ -31,6 +32,6 @@
 	}}
 	{...restProps}
 >
-	<SidebarIcon class="cn-rtl-flip" />
+	<SidebarIcon class="rtl:-scale-x-100" />
 	<span class="sr-only">Toggle Sidebar</span>
 </Button>
