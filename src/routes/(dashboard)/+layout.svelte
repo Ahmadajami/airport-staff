@@ -10,7 +10,7 @@
 <Sidebar.Provider
 	style="--sidebar-width: calc(var(--spacing) * 72); --header-height: calc(var(--spacing) * 12);"
 >
-	<AppSidebar variant="inset" />
+	<AppSidebar variant="inset" user={data.user} />
 	<Sidebar.Inset>
 		<SiteHeader user={data.user} />
 		<main class="@container/main flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">

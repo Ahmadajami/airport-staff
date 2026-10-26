@@ -4,7 +4,7 @@ Tracking file for the auth work (CLAUDE.md §8). Each step has an ID (`B4`, `F2`
 reviews can point at it. Tick a step when it has landed. Start the next phase only after the
 previous checkpoint is verified.
 
-**Status:** A ✅ · B ✅ · C ✅ · D ✅ · E ✅ · R ✅ · F ✅ · G 🚧 · H ⏳
+**Status:** A ✅ · B ✅ · C ✅ · D ✅ · E ✅ · R ✅ · F ✅ · G ✅ · H 🚧
 
 ## Decisions
 
@@ -57,8 +57,8 @@ Known trade-off: anyone who knows an admin's ID can lock that account with 5 wro
 ```
 Accounts (admin, operations managers)
   First admin: `pnpm auth:create-admin <id> "<name>"`       → 6-digit code, shown once, valid 7 days
-  Admin creates a manager (Phase G)                          → 6-digit code, shown once
-  Admin issues a new code (any account, incl. own) (Phase G) → old code + sessions dead, lock cleared
+  Admin creates a manager at /admin/users                    → 6-digit code, shown once
+  Admin issues a new code (any account, incl. own)           → old code + sessions dead, lock cleared
   Nobody can sign in? `pnpm auth:issue-code <id>`            → same, from the command line
   5 wrong codes in a row                                     → locked until a new code is issued
 
@@ -171,7 +171,7 @@ manager account created there.
 ## Phase F — Token API for CSR / mobile clients (JWT) ✅
 
 - [x] **F1** `POST /api/auth/token`: `{ idNumber, code }` → `{ tokenType, accessToken, expiresIn, refreshToken,
-    refreshExpiresAt }` (`session.client = api`), through the same `authenticate()` as `/login` (rate limit,
+  refreshExpiresAt }` (`session.client = api`), through the same `authenticate()` as `/login` (rate limit,
       lockout, expiry, Arabic-Indic digits). Failure messages shared via `LOGIN_FAILURE` in `login.ts`.
 - [x] **F2** `POST /api/auth/refresh`: `{ refreshToken }` → new pair. The old session row is deleted first, so a
       refresh token works once (replay or a concurrent refresh → 401); never past the code's expiry.
@@ -187,17 +187,29 @@ permissions, `client api`; no / forged token → 401; refresh → new pair; repl
 rotation → 401; logout → 204 and its access JWT → 401; no CORS headers; Arabic messages under `/ar/api`.
 Deactivation → 401 is re-tested at Checkpoint G on a manager account.
 
-## Phase G — Account management & code issuing (admin) ⏳
+## Phase G — Account management & code issuing (admin) ✅
 
-- [ ] **G1** `src/lib/server/services/users.ts`: list, create (admin / manager), issue code (any account,
-      incl. own), activate/deactivate, change role. `MANAGEABLE_ROLES` checks, last-admin and
-      self-deactivation guards; audit and session revocation in the same batch.
-- [ ] **G2** `src/routes/(app)/admin/users/`: table, create sheet, row actions; issued code shown once with its expiry.
-- [ ] **G3** "Issue my next code" for the signed-in admin, before the current one expires.
+- [x] **G1** `src/lib/server/services/users.ts` (actor-based, `user.manage` only): `listAccounts`, `createAccount`
+      (admin / operations manager, with a first code), `issueCode` (any account incl. your own; your current
+      session survives), `setAccountActive` (deactivation signs out everywhere), `changeAccountRole`. Guards:
+      no self-deactivation / self role change, always ≥ 1 active admin, `ACCOUNT_ROLES` only, duplicate ID
+      (`23505`) → field error. Audit row in the same `db.batch` as every change.
+- [x] **G2** `src/routes/(dashboard)/admin/users/`: accounts table (ID, name, role, status: active / locked / code
+      expired / deactivated, code expiry and last sign-in in Damascus time), create / issue-code / change-role
+      sheets (open from the inline end, so they mirror in RTL), activate / deactivate; the issued code is shown
+      once in a card with copy. "Accounts" sidebar link only for `user.manage` (the route checks it anyway).
+- [x] **G3** Admins renew their own code from their own row ("Issue new code").
+- [x] **G4** Rate limit counts per-ID failures only since the current code was issued, so a newly issued code
+      unlocks a locked-out user at once; a locked account that also hits the rate limit is told it is locked.
+- [x] **G5** Shared `formatDateTime()` (`src/lib/utils/datetime.ts`, Asia/Damascus) used by the user menu and the table.
 
-**Checkpoint G:** admin creates a manager and the manager signs in with the shown code; admin issues a new
-code and the old one stops working; a manager posting any account action → 403; deactivated user is
-signed out on the next request (web and API).
+**Checkpoint G: PASSED** (curl, dev server, test account `9000012` "Test Manager", left deactivated): admin
+creates it and gets a 6-digit code; duplicate ID → field error; non-account role → error; the manager signs in
+with the code, has no Accounts link, and gets 403 on the page and on create / issue-code / deactivate; admin
+can't deactivate or re-role themselves; deactivating the manager → web session redirected to `/login`, API
+access JWT → 401, sign-in → generic error; reactivated + new code → old code rejected; 5 wrong codes → locked
+(`failed_login_count 5`, `locked_at` set); a new code → signed in straight away. Audit rows written for
+create, issue_code, activate, deactivate. `pnpm check` 0 errors, `pnpm build` passes.
 
 ## Phase H — Hardening & docs ⏳
 

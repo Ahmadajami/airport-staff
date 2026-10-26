@@ -12,6 +12,12 @@ export function toAsciiDigits(value: string): string {
 /** Every account signs in with an issued numeric code of this length, entered with the OTP input. */
 export const CODE_LENGTH = 6;
 
+/** Validity choices offered when issuing a code, in hours: 24 h, 7 days, 30 days. */
+export const CODE_VALIDITY_HOURS = [24, 168, 720] as const;
+export type CodeValidityHours = (typeof CODE_VALIDITY_HOURS)[number];
+/** Open question with the ops team; 7 days so the three users aren't re-issued codes daily. */
+export const DEFAULT_CODE_VALIDITY_HOURS: CodeValidityHours = 168;
+
 // Error messages are functions so they render in the request's locale, not the module-load one.
 export const loginSchema = z.object({
 	idNumber: z

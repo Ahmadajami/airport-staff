@@ -28,6 +28,9 @@ export const ROLE_KEYS = [
 
 export type RoleKey = (typeof ROLE_KEYS)[number];
 
+/** Roles that can have a sign-in account today (AUTH_PLAN.md, Phase R). */
+export const ACCOUNT_ROLES = ['admin', 'operations_manager'] as const satisfies readonly RoleKey[];
+
 /**
  * Employee roles. Every account (admin and operations manager today) signs in with an issued 6-digit
  * code. Employees don't have accounts yet; these scopes are kept for when they do.
