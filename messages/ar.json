@@ -48,5 +48,8 @@
 	"function_ramp": "ساحة الطائرات",
 	"function_baggage": "الأمتعة",
 	"function_check_in": "تسجيل الوصول",
-	"function_gate": "البوابة"
+	"function_gate": "البوابة",
+	"auth_unauthenticated": "يرجى تسجيل الدخول للمتابعة.",
+	"auth_forbidden": "ليست لديك صلاحية للقيام بهذا الإجراء.",
+	"auth_password_change_required": "غيّر كلمة المرور المؤقتة قبل المتابعة."
 }

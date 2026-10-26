@@ -20,6 +20,12 @@ export const variables = defineEnvVars({
 		schema: required(pgUrl)
 	},
 
+	AUTH_JWT_SECRET: {
+		description:
+			'HS256 key for API access tokens (JWT), at least 32 characters. Generate with `openssl rand -base64 48`. Rotating it signs out every API client.',
+		schema: required(z.string().min(32, 'AUTH_JWT_SECRET must be at least 32 characters'))
+	},
+
 	PGHOST: { description: `Pooled host. ${INTEGRATION}`, schema: nonEmpty.optional() },
 	PGHOST_UNPOOLED: { description: `Direct host. ${INTEGRATION}`, schema: nonEmpty.optional() },
 	PGUSER: { description: `Database user. ${INTEGRATION}`, schema: nonEmpty.optional() },
