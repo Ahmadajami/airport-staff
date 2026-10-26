@@ -1,25 +1,18 @@
-import { error, fail } from '@sveltejs/kit';
-import {
-	message,
-	setError,
-	superValidate,
-	type Infer,
-	type SuperValidated
-} from 'sveltekit-superforms';
+import { fail } from '@sveltejs/kit';
+import { message, superValidate, type Infer } from 'sveltekit-superforms';
 import { zod4 } from 'sveltekit-superforms/adapters';
 import { m } from '#lib/paraglide/messages.js';
 import type { CodeValidityHours } from '#lib/schemas/auth.schema.js';
+import { failForm, failNotice } from '#lib/server/errors.js';
 import { requirePermission } from '#lib/server/rbac/guard.js';
 import {
-	UserServiceError,
 	changeAccountRole,
 	createAccount,
 	issueCode,
 	listAccountRoles,
 	listAccounts,
 	setAccountActive,
-	type Actor,
-	type UserServiceErrorCode
+	type Actor
 } from '#lib/server/services/users.js';
 import {
 	changeRoleSchema,
@@ -30,27 +23,8 @@ import {
 } from './schema.js';
 import type { Actions, PageServerLoad } from './$types';
 
-const ERROR_TEXT: Record<Exclude<UserServiceErrorCode, 'forbidden'>, () => string> = {
-	not_found: () => m.users_error_not_found(),
-	duplicate_login_id: () => m.users_error_duplicate(),
-	invalid_role: () => m.users_error_role(),
-	self: () => m.users_error_self(),
-	last_admin: () => m.users_error_last_admin(),
-	inactive: () => m.users_error_inactive()
-};
-
 function actorFrom(locals: App.Locals): Actor {
 	return { user: requirePermission(locals, 'user.manage'), permissions: locals.permissions };
-}
-
-/** Service errors → 403 or a form-level error message. Anything else is a bug and rethrows. */
-function handleError<T extends Record<string, unknown>>(
-	form: SuperValidated<T, UsersMessage>,
-	cause: unknown
-) {
-	if (!(cause instanceof UserServiceError)) throw cause;
-	if (cause.code === 'forbidden') error(403, m.auth_forbidden(), { code: 'forbidden' });
-	return message(form, { kind: 'error', text: ERROR_TEXT[cause.code]() }, { status: 400 });
 }
 
 const toHours = (value: string) => Number(value) as CodeValidityHours;
@@ -93,10 +67,7 @@ export const actions: Actions = {
 				expiresAt: issued.expiresAt.toISOString()
 			});
 		} catch (cause) {
-			if (cause instanceof UserServiceError && cause.code === 'duplicate_login_id') {
-				return setError(form, 'loginId', ERROR_TEXT.duplicate_login_id());
-			}
-			return handleError(form, cause);
+			return failForm(form, cause);
 		}
 	},
 
@@ -124,7 +95,7 @@ export const actions: Actions = {
 				expiresAt: target.expiresAt.toISOString()
 			});
 		} catch (cause) {
-			return handleError(form, cause);
+			return failForm(form, cause);
 		}
 	},
 
@@ -144,7 +115,7 @@ export const actions: Actions = {
 				text: m.users_role_changed({ name: target.fullName })
 			});
 		} catch (cause) {
-			return handleError(form, cause);
+			return failForm(form, cause);
 		}
 	},
 
@@ -162,9 +133,7 @@ export const actions: Actions = {
 					: m.users_deactivated({ name: target.fullName })
 			};
 		} catch (cause) {
-			if (!(cause instanceof UserServiceError)) throw cause;
-			if (cause.code === 'forbidden') error(403, m.auth_forbidden(), { code: 'forbidden' });
-			return fail(400, { notice: ERROR_TEXT[cause.code]() });
+			return failNotice(cause);
 		}
 	}
 };

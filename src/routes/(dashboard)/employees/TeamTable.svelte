@@ -4,12 +4,12 @@
 	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Table from '#lib/components/ui/table/index.js';
 	import { m } from '#lib/paraglide/messages.js';
+	import type { StaffRow, TeamOption } from '#lib/types/workforce.js';
 	import { cn } from '#lib/utils.js';
-	import type { Employee, Team } from './data.js';
 	import EmployeeRow from './EmployeeRow.svelte';
 	import { teamName } from './labels.js';
 
-	let { team, members }: { team: Team; members: Employee[] } = $props();
+	let { team, members }: { team: TeamOption; members: StaffRow[] } = $props();
 
 	const { ref, isDropTarget } = useDroppable({
 		id: () => team.id,

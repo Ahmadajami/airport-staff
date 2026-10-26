@@ -5,16 +5,24 @@
 	import * as InputGroup from '#lib/components/ui/input-group/index.js';
 	import * as Table from '#lib/components/ui/table/index.js';
 	import { m } from '#lib/paraglide/messages.js';
+	import type { StaffRow, TeamOption } from '#lib/types/workforce.js';
 	import { cn } from '#lib/utils.js';
-	import type { Employee, Team } from './data.js';
 	import EmployeeRow from './EmployeeRow.svelte';
 	import { ALL_EMPLOYEES, teamName } from './labels.js';
 
 	let {
 		employees,
 		teamById,
+		onEdit,
+		onToggleActive,
 		class: className
-	}: { employees: Employee[]; teamById: Map<string, Team>; class?: string } = $props();
+	}: {
+		employees: StaffRow[];
+		teamById: Map<string, TeamOption>;
+		onEdit: (employee: StaffRow) => void;
+		onToggleActive: (employee: StaffRow) => void;
+		class?: string;
+	} = $props();
 
 	let query = $state('');
 
@@ -25,7 +33,7 @@
 			(e) =>
 				e.employeeNo.includes(q) ||
 				e.fullName.toLocaleLowerCase().includes(q) ||
-				e.fullNameAr.includes(q)
+				(e.fullNameAr?.includes(q) ?? false)
 		);
 	});
 
@@ -64,15 +72,22 @@
 					<Table.Head>{m.employees_col_name()}</Table.Head>
 					<Table.Head>{m.employees_col_function()}</Table.Head>
 					<Table.Head>{m.employees_col_team()}</Table.Head>
+					<Table.Head><span class="sr-only">{m.staff_actions({ name: '' })}</span></Table.Head>
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>
 				{#each filtered as employee (employee.id)}
-					{@const team = employee.teamId ? teamById.get(employee.teamId) : undefined}
-					<EmployeeRow {employee} from={ALL_EMPLOYEES} team={team ? teamName(team) : null} />
+					{@const team = employee.team ? teamById.get(employee.team.id) : undefined}
+					<EmployeeRow
+						{employee}
+						from={ALL_EMPLOYEES}
+						team={team ? teamName(team) : null}
+						{onEdit}
+						{onToggleActive}
+					/>
 				{:else}
 					<Table.Row>
-						<Table.Cell colspan={5} class="h-20 text-center text-muted-foreground">
+						<Table.Cell colspan={6} class="h-20 text-center text-muted-foreground">
 							{m.employees_no_results()}
 						</Table.Cell>
 					</Table.Row>

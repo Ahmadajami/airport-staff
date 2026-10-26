@@ -168,7 +168,7 @@ export async function validateSession(
 	}
 
 	const { role, ...u } = row.user;
-	const roleKey = role.key as RoleKey;
+	const roleKey = role.key;
 	return {
 		user: {
 			id: u.id,
@@ -179,7 +179,7 @@ export async function validateSession(
 			credentialExpiresAt: codeExpiresAt
 		},
 		session: { id: row.id, client: row.client, expiresAt },
-		permissions: new Set(role.rolePermissions.map((rp) => rp.permission.key as PermissionKey)),
+		permissions: new Set(role.rolePermissions.map((rp) => rp.permission.key)),
 		renewed
 	};
 }

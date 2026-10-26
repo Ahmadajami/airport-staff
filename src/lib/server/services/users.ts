@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { and, asc, eq, ne, sql } from 'drizzle-orm';
+import { m } from '#lib/paraglide/messages.js';
 import { auditInsert } from '#lib/server/audit.js';
 import {
 	codeExpiresAt,
@@ -7,31 +8,23 @@ import {
 	type CodeValidityHours
 } from '#lib/server/auth/credentials.js';
 import { hashPassword } from '#lib/server/auth/password.js';
-import { invalidateUserSessions, type AuthUser } from '#lib/server/auth/session.js';
+import { invalidateUserSessions } from '#lib/server/auth/session.js';
 import { db } from '#lib/server/db/index.js';
+import {
+	ConflictError,
+	ForbiddenError,
+	InvalidInputError,
+	NotFoundError
+} from '#lib/server/errors.js';
 import { role, user } from '#lib/server/db/schema/index.js';
-import { ACCOUNT_ROLES, type PermissionKey, type RoleKey } from '#lib/server/rbac/permissions.js';
+import { ACCOUNT_ROLES } from '#lib/server/rbac/permissions.js';
+import { pgErrorCode, type Actor } from './common.js';
 
 // Account management (AUTH_PLAN.md, Phase G). Only admins (`user.manage`) use it today: they
 // create admin / operations-manager accounts and issue sign-in codes. Each function checks the
 // permission, applies the change, and writes the audit row in the same `db.batch([...])`.
 
-export type Actor = { user: AuthUser; permissions: ReadonlySet<PermissionKey> };
-
-export type UserServiceErrorCode =
-	| 'forbidden'
-	| 'not_found'
-	| 'duplicate_login_id'
-	| 'invalid_role'
-	| 'self'
-	| 'last_admin'
-	| 'inactive';
-
-export class UserServiceError extends Error {
-	constructor(readonly code: UserServiceErrorCode) {
-		super(code);
-	}
-}
+export type { Actor } from './common.js';
 
 export type AccountRole = (typeof ACCOUNT_ROLES)[number];
 
@@ -39,7 +32,7 @@ export type AccountRole = (typeof ACCOUNT_ROLES)[number];
 export type IssuedCode = { code: string; expiresAt: Date; fullName: string; loginId: string };
 
 function requireManage(actor: Actor) {
-	if (!actor.permissions.has('user.manage')) throw new UserServiceError('forbidden');
+	if (!actor.permissions.has('user.manage')) throw new ForbiddenError();
 }
 
 function isAccountRole(key: string): key is AccountRole {
@@ -61,15 +54,6 @@ async function codeColumns(validity: CodeValidityHours, now = new Date()) {
 	};
 }
 
-/** SQLSTATE of a Postgres error, also when wrapped by drizzle (`cause`). */
-function pgErrorCode(error: unknown): string | undefined {
-	for (let e = error; e && typeof e === 'object'; e = (e as { cause?: unknown }).cause) {
-		const code = (e as { code?: unknown }).code;
-		if (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) return code;
-	}
-	return undefined;
-}
-
 async function findAccount(id: string) {
 	const row = await db.query.user.findFirst({
 		where: eq(user.id, id),
@@ -84,13 +68,13 @@ async function findAccount(id: string) {
 		},
 		with: { role: { columns: { key: true } } }
 	});
-	if (!row) throw new UserServiceError('not_found');
-	return { ...row, roleKey: row.role.key as RoleKey };
+	if (!row) throw new NotFoundError(m.users_error_not_found());
+	return { ...row, roleKey: row.role.key };
 }
 
 async function roleIdFor(key: AccountRole): Promise<string> {
 	const row = await db.query.role.findFirst({ where: eq(role.key, key), columns: { id: true } });
-	if (!row) throw new UserServiceError('invalid_role');
+	if (!row) throw new InvalidInputError('invalid_role', m.users_error_role(), { field: 'role' });
 	return row.id;
 }
 
@@ -141,7 +125,8 @@ export async function createAccount(
 	}
 ): Promise<IssuedCode> {
 	requireManage(actor);
-	if (!isAccountRole(input.role)) throw new UserServiceError('invalid_role');
+	if (!isAccountRole(input.role))
+		throw new InvalidInputError('invalid_role', m.users_error_role(), { field: 'role' });
 
 	const roleId = await roleIdFor(input.role);
 	const { code, columns } = await codeColumns(input.validity);
@@ -173,7 +158,11 @@ export async function createAccount(
 			})
 		]);
 	} catch (error) {
-		if (pgErrorCode(error) === '23505') throw new UserServiceError('duplicate_login_id');
+		if (pgErrorCode(error) === '23505')
+			throw new ConflictError('duplicate_login_id', m.users_error_duplicate(), {
+				field: 'loginId',
+				cause: error
+			});
 		throw error;
 	}
 
@@ -197,7 +186,7 @@ export async function issueCode(
 ): Promise<IssuedCode> {
 	requireManage(actor);
 	const target = await findAccount(userId);
-	if (!target.active) throw new UserServiceError('inactive');
+	if (!target.active) throw new ConflictError('inactive', m.users_error_inactive());
 
 	const { code, columns } = await codeColumns(validity);
 	const self = target.id === actor.user.id;
@@ -229,9 +218,9 @@ export async function setAccountActive(actor: Actor, userId: string, active: boo
 	const target = await findAccount(userId);
 	if (target.active === active) return target;
 	if (!active) {
-		if (target.id === actor.user.id) throw new UserServiceError('self');
+		if (target.id === actor.user.id) throw new ConflictError('self', m.users_error_self());
 		if (target.roleKey === 'admin' && (await otherActiveAdmins(target.id)) === 0) {
-			throw new UserServiceError('last_admin');
+			throw new ConflictError('last_admin', m.users_error_last_admin());
 		}
 	}
 
@@ -253,12 +242,13 @@ export async function setAccountActive(actor: Actor, userId: string, active: boo
 /** Permissions are reloaded on every request, so a role change applies on the next one. */
 export async function changeAccountRole(actor: Actor, userId: string, newRole: string) {
 	requireManage(actor);
-	if (!isAccountRole(newRole)) throw new UserServiceError('invalid_role');
+	if (!isAccountRole(newRole))
+		throw new InvalidInputError('invalid_role', m.users_error_role(), { field: 'role' });
 	const target = await findAccount(userId);
 	if (target.roleKey === newRole) return target;
-	if (target.id === actor.user.id) throw new UserServiceError('self');
+	if (target.id === actor.user.id) throw new ConflictError('self', m.users_error_self());
 	if (target.roleKey === 'admin' && (await otherActiveAdmins(target.id)) === 0) {
-		throw new UserServiceError('last_admin');
+		throw new ConflictError('last_admin', m.users_error_last_admin());
 	}
 
 	await db.batch([
