@@ -9,6 +9,11 @@ previous checkpoint is verified, and commit once per phase.
 (`ROSTER_PLAN.md`) lands** · E in progress (E1, E2, E4 built, ticked once Checkpoint E passes) · **X in
 progress** (X1–X6, X11, X12, X16 done; X13 / X14 done for the flight sheet) · F–H ⏳
 
+**Released (2026-10-26):** everything above (A–E as built, the SvelteKit 3 error handling, X1–X6, X11–X13
+for the flight sheet, X16, the no-team employee hotfix, migrations `0006`–`0009`) is commit `14d38ac`,
+merged to `main` through PR #1 (merge commit `8b98ca2`) for the staging check. Migrations `0008` / `0009`
+were applied to the `.env` Neon database before the merge. Later work branches from the updated `main`.
+
 ## Goal
 
 - **Teams CRUD**: create, name (English + Arabic), rename, deactivate teams.
