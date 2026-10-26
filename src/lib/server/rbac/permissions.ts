@@ -28,8 +28,11 @@ export const ROLE_KEYS = [
 
 export type RoleKey = (typeof ROLE_KEYS)[number];
 
-/** Roles that sign in with an issued 6-digit code they can't change; the rest use a password. */
-export const CODE_ROLES = [
+/**
+ * Employee roles. Every account (admin and operations manager today) signs in with an issued 6-digit
+ * code. Employees don't have accounts yet; these scopes are kept for when they do.
+ */
+export const EMPLOYEE_ROLES = [
 	'supervisor',
 	'dispatcher',
 	'viewer'
@@ -37,12 +40,12 @@ export const CODE_ROLES = [
 
 /**
  * Roles whose accounts a holder of each user-management permission may act on.
- * - `user.manage` / `user.manage_operational`: create, deactivate, or move between (a role change
- *   needs both the current and the new role in the list).
- * - `user.issue_code`: issue a new 6-digit code (never for your own account).
+ * - `user.manage` (admin): every account, including issuing their own next code.
+ * - `user.manage_operational` / `user.issue_code`: employee accounts only, never your own, so a
+ *   manager can never mint a code for an admin or another manager.
  */
 export const MANAGEABLE_ROLES = {
 	'user.manage': ROLE_KEYS,
-	'user.manage_operational': CODE_ROLES,
-	'user.issue_code': CODE_ROLES
+	'user.manage_operational': EMPLOYEE_ROLES,
+	'user.issue_code': EMPLOYEE_ROLES
 } as const satisfies Partial<Record<PermissionKey, readonly RoleKey[]>>;

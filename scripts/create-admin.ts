@@ -1,31 +1,23 @@
 /**
  * Create an admin account from the command line (first admin, or a recovery admin with --force).
  *
- *   pnpm auth:create-admin <loginId> "<full name>" [--name-ar "<الاسم>"] [--force]
+ *   pnpm auth:create-admin <loginId> "<full name>" [--name-ar "<الاسم>"] [--days 1|7|30] [--force]
  *
- * Prints a random one-time password once. The admin must change it at first sign-in.
- * Runs outside SvelteKit, so it uses its own DB client and relative imports (no `$app/*`, no `#lib`).
+ * Prints the admin's 6-digit sign-in code once (valid 7 days unless --days says otherwise).
  */
 import { randomUUID } from 'node:crypto';
 import { parseArgs } from 'node:util';
-import { neon } from '@neondatabase/serverless';
 import { and, eq } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/neon-http';
-import { generateTempPassword, hashPassword } from '../src/lib/server/auth/password.js';
-import * as schema from '../src/lib/server/db/schema/index.js';
+import { connect, fail, newCode, parseLoginId, parseValidity, printCode, schema } from './lib.js';
 
 const USAGE =
-	'Usage: pnpm auth:create-admin <loginId> "<full name>" [--name-ar "<name>"] [--force]';
-
-function fail(message: string): never {
-	console.error(message);
-	process.exit(1);
-}
+	'Usage: pnpm auth:create-admin <loginId> "<full name>" [--name-ar "<name>"] [--days 1|7|30] [--force]';
 
 const { values, positionals } = parseArgs({
 	allowPositionals: true,
 	options: {
 		'name-ar': { type: 'string' },
+		days: { type: 'string' },
 		force: { type: 'boolean', default: false }
 	}
 });
@@ -33,17 +25,12 @@ const { values, positionals } = parseArgs({
 const [rawLoginId, rawFullName] = positionals;
 if (!rawLoginId || !rawFullName?.trim()) fail(USAGE);
 
-// Same normalisation as the login form: Arabic-Indic digits → ASCII.
-const loginId = rawLoginId.trim().replace(/[٠-٩۰-۹]/g, (d) => String(d.charCodeAt(0) & 0xf));
-if (!/^[0-9]+$/.test(loginId)) fail(`loginId must contain digits only (got "${rawLoginId}").`);
-
+const loginId = parseLoginId(rawLoginId);
 const fullName = rawFullName.trim();
 const fullNameAr = values['name-ar']?.trim() || null;
+const validity = parseValidity(values.days);
 
-const url = process.env.DATABASE_URL;
-if (!url) fail('DATABASE_URL is not set.');
-
-const db = drizzle(neon(url), { schema });
+const db = connect();
 
 const adminRole = await db.query.role.findFirst({
 	where: eq(schema.role.key, 'admin'),
@@ -63,36 +50,29 @@ const taken = await db.query.user.findFirst({
 	where: eq(schema.user.loginId, loginId),
 	columns: { id: true }
 });
-if (taken) fail(`ID ${loginId} already has an account.`);
+if (taken) fail(`ID ${loginId} already has an account. Use \`pnpm auth:issue-code ${loginId}\`.`);
 
-const oneTimePassword = generateTempPassword();
+const { code, columns } = await newCode(validity);
 const id = randomUUID();
 
 await db.batch([
-	db.insert(schema.user).values({
-		id,
-		loginId,
-		fullName,
-		fullNameAr,
-		roleId: adminRole.id,
-		passwordHash: await hashPassword(oneTimePassword),
-		mustChangePassword: true
-	}),
+	db
+		.insert(schema.user)
+		.values({ id, loginId, fullName, fullNameAr, roleId: adminRole.id, ...columns }),
 	db.insert(schema.auditLog).values({
 		actorUserId: null,
 		action: 'user.bootstrap_admin',
 		entityType: 'user',
 		entityId: id,
-		after: { loginId, fullName, fullNameAr, role: 'admin', forced: values.force }
+		after: {
+			loginId,
+			fullName,
+			fullNameAr,
+			role: 'admin',
+			codeExpiresAt: columns.passwordExpiresAt,
+			forced: values.force
+		}
 	})
 ]);
 
-console.log(`
-Admin account created.
-
-  ID number:          ${loginId}
-  Name:               ${fullName}
-  One-time password:  ${oneTimePassword}
-
-This password is shown only once. Sign in at /login; you will be asked to set a new password.
-`);
+printCode(`Admin account created for ${fullName}.`, loginId, code, columns.passwordExpiresAt);

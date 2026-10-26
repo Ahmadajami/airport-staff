@@ -16,7 +16,8 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
-		"auth:create-admin": "tsx --env-file=.env scripts/create-admin.ts"
+		"auth:create-admin": "tsx --env-file=.env scripts/create-admin.ts",
+		"auth:issue-code": "tsx --env-file=.env scripts/issue-code.ts"
 	},
 	"devDependencies": {
 		"@dnd-kit-svelte/svelte": "^0.1.6",
