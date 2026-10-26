@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { afterNavigate } from '$app/navigation';
 	import AirplaneTiltIcon from 'phosphor-svelte/lib/AirplaneTiltIcon';
@@ -7,21 +6,18 @@
 	import XIcon from 'phosphor-svelte/lib/XIcon';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { AnimatedThemeToggler } from '#lib/components/magic/animated-theme-toggler/index.js';
-	import { localizedHref, type StaticRoute } from '#lib/i18n.js';
+	import { localizedHref, type AppPath } from '#lib/i18n.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { deLocalizeHref, getLocale, locales, setLocale } from '#lib/paraglide/runtime.js';
 	import { cn } from '#lib/utils.js';
 
-	const navRoutes: { route: StaticRoute; label: string }[] = [{ route: '/', label: m.nav_home() }];
-	const navItems = navRoutes.map((item) => ({
-		path: resolve(item.route),
-		href: localizedHref(item.route),
-		label: item.label
-	}));
+	const navRoutes: { path: AppPath; label: string }[] = [{ path: '/', label: m.nav_home() }];
+	const navItems = navRoutes.map((item) => ({ ...item, href: localizedHref(item.path) }));
 
 	const localeLabels: Record<(typeof locales)[number], string> = { en: 'EN', ar: 'ع' };
 
 	const homeHref = localizedHref('/');
+	const loginHref = localizedHref('/login');
 	const currentLocale = getLocale();
 	const currentPath = $derived(deLocalizeHref(page.url.pathname));
 
@@ -86,6 +82,8 @@
 				class="inline-flex size-8 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&_svg]:size-4"
 			/>
 
+			<Button href={loginHref} size="sm" class="hidden md:inline-flex">{m.nav_login()}</Button>
+
 			<Button
 				bind:ref={menuButton}
 				variant="ghost"
@@ -122,6 +120,9 @@
 					</a>
 				</li>
 			{/each}
+			<li class="pt-2">
+				<Button href={loginHref} class="w-full">{m.nav_login()}</Button>
+			</li>
 		</ul>
 	</nav>
 </header>
