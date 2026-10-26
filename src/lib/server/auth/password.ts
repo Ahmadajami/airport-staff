@@ -1,11 +1,10 @@
 import { hash, verify } from '@node-rs/argon2';
 import { randomInt } from 'node:crypto';
+// Relative, not #lib: scripts/create-admin.ts imports this file outside SvelteKit.
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '../../schemas/auth.schema.js';
 
 // OWASP baseline for Argon2id (19 MiB, 2 iterations, 1 lane). Argon2id is the library default.
 const ARGON2_OPTIONS = { memoryCost: 19456, timeCost: 2, parallelism: 1 } as const;
-
-export const PASSWORD_MIN_LENGTH = 10;
-export const PASSWORD_MAX_LENGTH = 128;
 
 const TEMP_PASSWORD_LENGTH = 12;
 // No 0/O, 1/l/I: the one-time password is read out or copied by hand.
