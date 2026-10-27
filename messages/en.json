@@ -331,5 +331,6 @@
 	"error_retry": "Try again",
 	"flights_field_override_reason": "Reason for the changed window",
 	"flights_override_reason_description": "This window differs from the default. The reason is kept in the audit log.",
-	"flights_override_reason_required": "Give a reason for changing the handling window."
+	"flights_override_reason_required": "Give a reason for changing the handling window.",
+	"settings_time_invalid": "Enter a time as HH:mm, from 00:00 to 23:59."
 }

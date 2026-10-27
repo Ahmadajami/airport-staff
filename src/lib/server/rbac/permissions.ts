@@ -13,7 +13,9 @@ export const PERMISSIONS = [
 	'user.manage_operational',
 	'user.issue_code',
 	'settings.manage',
-	'audit.read'
+	'audit.read',
+	'roster.manage',
+	'overtime.approve'
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number];

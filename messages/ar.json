@@ -331,5 +331,6 @@
 	"error_retry": "حاول مجدداً",
 	"flights_field_override_reason": "سبب تعديل نافذة الخدمة",
 	"flights_override_reason_description": "تختلف هذه النافذة عن النافذة الافتراضية. يُحفظ السبب في سجل التدقيق.",
-	"flights_override_reason_required": "اذكر سبب تعديل نافذة الخدمة."
+	"flights_override_reason_required": "اذكر سبب تعديل نافذة الخدمة.",
+	"settings_time_invalid": "أدخل الوقت بصيغة HH:mm، من 00:00 إلى 23:59."
 }

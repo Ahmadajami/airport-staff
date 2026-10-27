@@ -126,7 +126,7 @@ TypeScript runs with `strict`. Every backend type is derived from Drizzle (row s
 ### Services, errors & types
 
 - **Errors (SvelteKit 3 `handleError`).** See "Error handling" below.
-- Types have one source: rows from `typeof table.$inferSelect` or `PageData` (`./$types`), inputs from `z.infer`. Closed sets are `as const` tuples in a client-safe `src/lib/schemas/enums.ts` (planned) that feed `pgEnum(...)`, `z.enum(...)`, and the label functions. Don't hand-write unions that duplicate a `pgEnum` (`src/lib/types/*.ts` is to be migrated).
+- Types have one source: rows from `typeof table.$inferSelect` or `PageData` (`./$types`), inputs from `z.infer`. Closed sets are `as const` tuples in a client-safe `src/lib/schemas/enums.ts` (roster / attendance sets done; older enums to be moved) that feed `pgEnum(...)`, `z.enum(...)`, and the label functions. Don't hand-write unions that duplicate a `pgEnum` (`src/lib/types/*.ts` is to be migrated).
 - Client files never import runtime values from `#lib/server/**`. `import type` is erased at build and allowed, but prefer `./$types`.
 - Reusable zod primitives (IATA code, flight number, employee no, login ID) live in `src/lib/schemas/primitives.ts` (planned). Service schemas compose them with `.extend()` / `.pick()` / `.omit()`.
 - CRUD write builders return the shape the caller needs via `.returning({...})`, read from the `db.batch` result, not from a follow-up read.
@@ -159,7 +159,7 @@ src/lib/server/services/         common.ts (Actor, BatchQuery, pgErrorCode); one
 src/lib/roster/                  planned: pure, client-safe roster engine (cycle, roster, attendance, overtime) + *.test.ts;
                                    used by the server and by live previews in the browser
 src/lib/components/ui/           shadcn-svelte components (generated; wrap in src/lib/app/ instead of editing, §3)
-src/lib/schemas/                 client-safe zod, one <service>.schema.ts per service (auth.schema.ts done); enums.ts, primitives.ts (planned, §3)
+src/lib/schemas/                 client-safe zod, one <service>.schema.ts per service (auth.schema.ts, settings.schema.ts done); enums.ts (done), primitives.ts (planned, §3)
 src/lib/app/                     app-specific components (layout shell, UserMenu, nav)
 src/routes/(app)/                authenticated area with the top Header; +layout.server.ts requires a session
 src/routes/(dashboard)/          authenticated area with the sidebar: dashboard/, employees/, flights/, teams/, imports/, admin/users/
@@ -235,7 +235,7 @@ These descriptions are **proposed defaults**. The final permission matrix is sti
 
 - `drizzle.config.ts`: `dialect: 'postgresql'`, `strict: true`, schema at `./src/lib/server/db/schema` (split files). `DATABASE_URL_UNPOOLED` or `DATABASE_URL` must be set to run any drizzle-kit command.
 - `src/lib/server/db/index.ts`: `drizzle(neon(DATABASE_URL), { schema })` over **neon-http**.
-- Applied migrations `drizzle/0000`–`0009`: auth / RBAC / audit tables, RBAC seed, `session.client`, code credential columns, `user.issue_code` seed, drop of `must_change_password` (`0000`–`0005`); workforce, flights, team assignments and imports with their constraints and seeds (`0006` / `0007`); `staff_team_membership` with its overlap constraint and backfill (`0008` / `0009`). The demo `task` table is gone.
+- Applied migrations `drizzle/0000`–`0011`: auth / RBAC / audit tables, RBAC seed, `session.client`, code credential columns, `user.issue_code` seed, drop of `must_change_password` (`0000`–`0005`); workforce, flights, team assignments and imports with their constraints and seeds (`0006` / `0007`); `staff_team_membership` with its overlap constraint and backfill (`0008` / `0009`); roster, attendance, overtime and settings tables, their `EXCLUDE` constraints and the admin-only roster permissions (`0010` / `0011`). The demo `task` table is gone.
 
 ### neon-http constraints
 

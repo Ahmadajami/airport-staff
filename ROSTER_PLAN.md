@@ -5,7 +5,8 @@ made. Each step has an ID (`RB3`, `RG2`, …) so commits and reviews can point a
 landed. Start the next phase only after the previous checkpoint is verified, record the result under the
 checkpoint, and commit once per phase.
 
-**Status:** RA ✅ (2026-10-27, not committed yet) · RB–RI ⏳. Baseline: `main` at `8b98ca2` (PR #1, the operations core, on staging). `OPERATIONS_PLAN.md` Checkpoint D (upload &
+**Status:** RA ✅ (`38cdfc7`) · RB ✅ (2026-10-27; migrations `0010` / `0011` applied to the `.env` Neon
+database) · RC–RI ⏳. Baseline: `main` at `8b98ca2` (PR #1, the operations core, on staging). `OPERATIONS_PLAN.md` Checkpoint D (upload &
 import) is paused until this lands; its Phase X fixes can continue alongside.
 
 ## Goal
@@ -100,25 +101,40 @@ the Damascus time helpers) passes. `pnpm check`: 0 errors (1 existing warning in
 `ui/stepper/stepper-item.svelte`). `pnpm lint` still fails on Prettier for 150 files this change didn't
 touch.
 
-## Phase RB — Schema & migrations ⏳
+## Phase RB — Schema & migrations ✅
 
-- [ ] **RB1** `src/lib/schemas/enums.ts`: `SHIFT_KINDS`, `ATTENDANCE_EVENT_TYPES`, `ABSENCE_TYPES` tuples.
-- [ ] **RB2** `schema/settings.ts`: `app_setting` with typed keys and values.
-- [ ] **RB3** `schema/roster.ts`: `shift_pattern` (team or personal), `team_supervisor`,
-      `roster_override` (with `swap_group_id`), `overtime_approval`; relations; `$type` on `cycle`.
-- [ ] **RB4** `schema/attendance.ts`: `attendance_event`, `absence`; relations.
-- [ ] **RB5** `pnpm db:generate` → read the SQL.
-- [ ] **RB6** Custom migration: the two pattern-version `EXCLUDE` constraints (team, person), the
-      `num_nonnulls` owner `CHECK`, `cycle` cardinality / non-off `CHECK`s, partial uniques,
-      `roster.manage` and `overtime.approve` permissions + admin seed, `attendance.record` removed from
-      `operations_manager` and `supervisor`.
-- [ ] **RB7** `pnpm db:migrate`.
+- [x] **RB1** `src/lib/schemas/enums.ts`: `SHIFT_KINDS`, `ATTENDANCE_EVENT_TYPES`, `ABSENCE_TYPES` tuples.
+- [x] **RB2** `schema/settings.ts`: `app_setting` with typed keys and values (from
+      `#lib/schemas/settings.schema.ts`: `roster.shift_starts` → `shiftStartsSchema`).
+- [x] **RB3** `schema/roster.ts`: `shift_pattern` (team or personal), `team_supervisor`,
+      `roster_override` (with `swap_group_id`), `overtime_approval`; relations. `cycle` is typed
+      `ShiftKind[]` by the enum array itself, so no `$type` was needed.
+- [x] **RB4** `schema/attendance.ts`: `attendance_event`, `absence`; relations.
+- [x] **RB5** `pnpm db:generate` → `0010_crazy_leo.sql`, read. The owner, cycle-shape, works-a-shift,
+      effective-order, reason, minutes and kind `CHECK`s and the partial uniques are in the schema, so
+      Drizzle generates them.
+- [x] **RB6** Custom migration `0011_roster_constraints_seed.sql`: the two pattern-version `EXCLUDE`
+      constraints (team, person), an `EXCLUDE` on one person's active absences (added: overlapping
+      absences would double-count), `roster.manage` and `overtime.approve` + admin seed,
+      `attendance.record` removed from `operations_manager` and `supervisor`.
+- [x] **RB7** `pnpm db:migrate` (`.env` Neon database, 2026-10-27).
 
 **Checkpoint RB:** in a rolled-back transaction: two overlapping pattern versions for one team (or one
 person) fail `23P01`; a pattern with both or neither owner fails the `CHECK`; back-to-back versions
 succeed; a 29-day or all-`off` cycle fails the `CHECK`; a second active supervisor row for the same pair
 or a second active override for one person and date fails `23505`; `role_permission` gives
 `attendance.record`, `roster.manage` and `overtime.approve` to `admin` only. `pnpm check` clean.
+
+_Result (2026-10-27):_ 37 checks in one transaction ending in `ROLLBACK`, all as expected. Overlapping
+team or personal versions (including after an open one) → `23P01`; back-to-back versions, a personal
+version beside its team's, and a 28-day cycle → accepted; both / neither owner, 29-day, all-off, empty,
+`NULL`-day cycles and a reversed range → `23514`; a second active supervisor, override or overtime
+approval → `23505`, accepted again after remove / cancel; a two-sided swap in one statement →
+accepted; overtime of 40 or 0 min or on an `off` kind → `23514`; an attendance event on `off` or a
+correction without a reason → `23514`, with a reason → accepted; overlapping active absences (sharing
+an end day) → `23P01`, a cancelled one doesn't block. `role_permission`: `attendance.record`,
+`roster.manage`, `overtime.approve` → `admin` only. No test rows left behind. `pnpm check`: 0 errors;
+`pnpm test` green; `pnpm db:generate` reports no drift.
 
 ## Phase RC — Roster engine (pure, tested) ⏳
 

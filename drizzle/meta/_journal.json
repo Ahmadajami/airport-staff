@@ -71,6 +71,20 @@
       "when": 1793022071888,
       "tag": "0009_membership_constraints_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793092711900,
+      "tag": "0010_crazy_leo",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793092721897,
+      "tag": "0011_roster_constraints_seed",
+      "breakpoints": true
     }
   ]
 }
