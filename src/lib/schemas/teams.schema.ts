@@ -14,6 +14,11 @@ export const teamFormSchema = z.object({
 		.min(1, { error: () => m.teams_name_required() })
 		.max(120)
 });
+export type TeamFormSchema = typeof teamFormSchema;
+
+/** The teams service's create / rename input. */
+export const teamInputSchema = teamFormSchema.pick({ nameEn: true, nameAr: true });
+export type TeamInput = z.infer<typeof teamInputSchema>;
 
 export const setTeamActiveSchema = z.object({
 	teamId: z.uuid(),

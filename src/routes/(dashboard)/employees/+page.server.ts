@@ -5,6 +5,7 @@ import { m } from '#lib/paraglide/messages.js';
 import { failForm, failNotice } from '#lib/server/errors.js';
 import { requirePermission } from '#lib/server/rbac/guard.js';
 import type { Actor } from '#lib/server/services/common.js';
+import { listPersonalPatternStaff } from '#lib/server/services/roster/roster.bl.js';
 import {
 	createStaff,
 	listActiveTeams,
@@ -29,15 +30,17 @@ function actorFrom(locals: App.Locals): Actor {
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const actor = actorFrom(locals);
-	const [staff, teams, functions] = await Promise.all([
+	const [staff, teams, functions, personalPatternIds] = await Promise.all([
 		listStaff(actor),
 		listActiveTeams(actor),
-		listFunctions(actor)
+		listFunctions(actor),
+		listPersonalPatternStaff(actor)
 	]);
 	return {
 		employees: staff,
 		teams,
 		functions,
+		personalPatternIds,
 		form: await superValidate(zod4(staffFormSchema), { id: 'staff' })
 	};
 };

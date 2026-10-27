@@ -10,6 +10,8 @@
 	import * as Table from '#lib/components/ui/table/index.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { StaffRow } from '#lib/types/workforce.js';
+	import { localizedHref } from '#lib/i18n.js';
+	import { getPersonalPatternIds } from './context.js';
 	import DragHandle from './DragHandle.svelte';
 	import { employeeName, lookupName } from './labels.js';
 
@@ -31,6 +33,7 @@
 	} = $props();
 
 	const name = $derived(employeeName(employee));
+	const personalPatternIds = getPersonalPatternIds();
 
 	// The same employee can be listed in All and in a team, so the draggable id includes the table.
 	const { ref, handleRef, isDragging } = useDraggable({
@@ -50,9 +53,17 @@
 		<bdi dir="ltr">{employee.employeeNo}</bdi>
 	</Table.Cell>
 	<Table.Cell class="font-medium">
-		<span class={employee.active ? undefined : 'text-muted-foreground line-through'}>{name}</span>
+		<a
+			href={localizedHref('/employees/[id]', { id: employee.id })}
+			class={['hover:underline', !employee.active && 'text-muted-foreground line-through']}
+		>
+			{name}
+		</a>
 		{#if !employee.active}
 			<Badge variant="outline" class="ms-2">{m.staff_status_inactive()}</Badge>
+		{/if}
+		{#if personalPatternIds().has(employee.id)}
+			<Badge variant="secondary" class="ms-2">{m.roster_personal_badge()}</Badge>
 		{/if}
 	</Table.Cell>
 	<Table.Cell>

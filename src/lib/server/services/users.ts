@@ -20,7 +20,7 @@ import { role, user } from '#lib/server/db/schema/index.js';
 import { ACCOUNT_ROLES } from '#lib/server/rbac/permissions.js';
 import { pgErrorCode, type Actor } from './common.js';
 
-// Account management (AUTH_PLAN.md, Phase G). Only admins (`user.manage`) use it today: they
+// Account management (CLAUDE.md §8). Only admins (`user.manage`) use it today: they
 // create admin / operations-manager accounts and issue sign-in codes. Each function checks the
 // permission, applies the change, and writes the audit row in the same `db.batch([...])`.
 

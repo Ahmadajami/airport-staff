@@ -2,7 +2,7 @@ import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import tailwindcss from '@tailwindcss/vite';
 import adapter from '@sveltejs/adapter-vercel';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	plugins: [
@@ -25,5 +25,11 @@ export default defineConfig({
 			// Locale lives in the URL (`/ar/...`); cookie remembers the last choice.
 			strategy: ['url', 'cookie', 'baseLocale']
 		})
-	]
+	],
+	// Unit tests for pure logic only (CLAUDE.md §2): Node, no database, beside the file they test.
+	test: {
+		include: ['src/**/*.test.ts'],
+		environment: 'node',
+		expect: { requireAssertions: true }
+	}
 });

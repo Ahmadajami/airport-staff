@@ -11,7 +11,7 @@ export {
 	type CodeValidityHours
 } from '#lib/schemas/auth.schema.js';
 
-// Credential policy (AUTH_PLAN.md, "Decisions"): every account signs in with a 6-digit code issued
+// Credential policy (CLAUDE.md §8): every account signs in with a 6-digit code issued
 // by an admin (or `pnpm auth:issue-code`). Codes expire, their holder can't change them, and too
 // many consecutive wrong codes lock the account until a new code is issued.
 

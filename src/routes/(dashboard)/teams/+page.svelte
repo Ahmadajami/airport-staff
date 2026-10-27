@@ -14,7 +14,9 @@
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
 	import * as Table from '#lib/components/ui/table/index.js';
 	import { m } from '#lib/paraglide/messages.js';
-	import { teamName } from '#lib/utils/locale.js';
+	import { shiftKindLetter } from '#lib/app/roster/labels.js';
+	import { localizedHref } from '#lib/i18n.js';
+	import { personName, teamName } from '#lib/utils/locale.js';
 	import TeamFormSheet from './TeamFormSheet.svelte';
 	import type { PageProps } from './$types';
 
@@ -81,6 +83,8 @@
 					<Table.Row>
 						<Table.Head>{m.teams_col_name()}</Table.Head>
 						<Table.Head>{m.teams_col_members()}</Table.Head>
+						<Table.Head>{m.teams_col_cycle()}</Table.Head>
+						<Table.Head>{m.teams_col_supervisors()}</Table.Head>
 						<Table.Head>{m.teams_col_today()}</Table.Head>
 						<Table.Head>{m.teams_col_status()}</Table.Head>
 						<Table.Head><span class="sr-only">{m.teams_actions({ name: '' })}</span></Table.Head>
@@ -89,12 +93,32 @@
 				<Table.Body>
 					{#each data.teams as team (team.id)}
 						<Table.Row>
-							<Table.Cell class="font-medium">{teamName(team)}</Table.Cell>
+							<Table.Cell class="font-medium">
+								<a href={localizedHref('/teams/[id]', { id: team.id })} class="hover:underline">
+									{teamName(team)}
+								</a>
+							</Table.Cell>
 							<Table.Cell>
 								<span class="inline-flex items-center gap-1.5 text-muted-foreground">
 									<UsersFourIcon class="size-4" />
 									{team.memberCount}
 								</span>
+							</Table.Cell>
+							<Table.Cell>
+								{#if team.cycle}
+									<bdi class="font-mono text-xs" dir="ltr">
+										{team.cycle.map(shiftKindLetter).join(' ')}
+									</bdi>
+								{:else}
+									<span class="text-muted-foreground">{m.teams_no_cycle()}</span>
+								{/if}
+							</Table.Cell>
+							<Table.Cell class="text-sm">
+								{#if team.supervisors.length > 0}
+									{team.supervisors.map(personName).join(m.list_separator())}
+								{:else}
+									<span class="text-muted-foreground">—</span>
+								{/if}
 							</Table.Cell>
 							<Table.Cell>{team.todayFlights}</Table.Cell>
 							<Table.Cell>
@@ -142,7 +166,7 @@
 						</Table.Row>
 					{:else}
 						<Table.Row>
-							<Table.Cell colspan={5} class="h-20 text-center text-muted-foreground">
+							<Table.Cell colspan={7} class="h-20 text-center text-muted-foreground">
 								{m.teams_empty()}
 							</Table.Cell>
 						</Table.Row>

@@ -7,14 +7,15 @@
 - **Not general HR**: no payroll, leave balances, recruitment, or performance reviews.
 - Pilot runs alongside Odoo; cutover only after the acceptance checklist (§11) passes, including tested backups/recovery.
 - MVP = Phases 1–3 below. Phases 4–5 must not be built early.
+- **Owner decision (2026-10-26):** recurring shift cycles and overtime **hours** moved from Phase 4 into the MVP, because attendance needs to know who should be working. The plan and every decision behind it are in `plans/ROSTER_PLAN.md`.
 
-| Phase                              | Scope                                                                                                                                                                            | Priority |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| 1 Foundation & data import         | Auth + 5 roles, staff directory & teams, flight DB, CSV/Excel import preview, audit trail, Odoo reconciliation                                                                   | MVP      |
-| 2 Flights & assignments            | Arrivals/departures list + day timeline, create/edit/reschedule/cancel flights, handling windows & required staff counts, assign teams/individuals, server-side overlap blocking | MVP      |
-| 3 Attendance & control dashboard   | Check-in/out, breaks, absences, scheduled vs. available staff, coverage dashboard, alerts for missing staff / uncovered flights, daily report                                    | MVP      |
-| 4 Roster automation & integrations | Recurring shifts, 12-on/24-off rosters, flight feed sync + stale-data warnings, live updates, overtime                                                                           | Later    |
-| 5 Optimization & forecasting       | Demand forecasts, staffing model comparison, assignment recommendations, KPIs, PDF/Excel reports                                                                                 | Later    |
+| Phase                              | Scope                                                                                                                                                                                             | Priority |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 1 Foundation & data import         | Auth + 5 roles, staff directory & teams, flight DB, CSV/Excel import preview, audit trail, Odoo reconciliation                                                                                    | MVP      |
+| 2 Flights & assignments            | Arrivals/departures list + day timeline, create/edit/reschedule/cancel flights, handling windows & required staff counts, assign teams/individuals, server-side overlap blocking                  | MVP      |
+| 3 Rosters, attendance & control    | Repeating Day / Night / Off shift cycles (team and personal), team moves with an effective date, check-in/out, breaks, absences, overtime hours per day, coverage dashboard, alerts, daily report | MVP      |
+| 4 Roster automation & integrations | Team alignment / staggering, supervisor accounts, flight feed sync + stale-data warnings, live updates, overtime export to payroll                                                                | Later    |
+| 5 Optimization & forecasting       | Demand forecasts, staffing model comparison, assignment recommendations, KPIs, PDF/Excel reports                                                                                                  | Later    |
 
 ## 2. Commands (pnpm only)
 
@@ -24,6 +25,7 @@ pnpm build          # production build (Vercel adapter)
 pnpm check          # svelte-kit sync + svelte-check (types)
 pnpm lint           # prettier --check + eslint
 pnpm format         # prettier --write
+pnpm test           # vitest run (unit tests: src/**/*.test.ts)
 pnpm db:generate    # drizzle-kit generate (SQL migration from schema diff)
 pnpm db:migrate     # apply migrations
 pnpm db:studio      # Drizzle Studio
@@ -33,7 +35,8 @@ pnpm auth:issue-code <id> [--days 1|7|30]          # recovery: new code, clears 
 ```
 
 - **Do not use `pnpm db:push`** once migrations exist. It bypasses custom SQL migrations (exclusion constraints, seeds; see §7).
-- Run `pnpm check` and `pnpm lint` before declaring work done.
+- Run `pnpm check`, `pnpm lint` and `pnpm test` before declaring work done.
+- **Tests (Vitest):** pure logic only (the roster engine `src/lib/roster/`, time and parsing helpers), in a `<name>.test.ts` beside the file it tests, Node environment, no database. Every rule in `plans/ROSTER_PLAN.md` that the engine implements gets a test case, including its edges.
 
 ## 3. Stack & conventions (non-default — read carefully)
 
@@ -123,7 +126,7 @@ TypeScript runs with `strict`. Every backend type is derived from Drizzle (row s
 ### Services, errors & types
 
 - **Errors (SvelteKit 3 `handleError`).** See "Error handling" below.
-- Types have one source: rows from `typeof table.$inferSelect` or `PageData` (`./$types`), inputs from `z.infer`. Closed sets are `as const` tuples in a client-safe `src/lib/schemas/enums.ts` (planned) that feed `pgEnum(...)`, `z.enum(...)`, and the label functions. Don't hand-write unions that duplicate a `pgEnum` (`src/lib/types/*.ts` is to be migrated).
+- Types have one source: rows from `typeof table.$inferSelect` or `PageData` (`./$types`), inputs from `z.infer`. Closed sets are `as const` tuples in a client-safe `src/lib/schemas/enums.ts` (roster / attendance sets done; older enums to be moved) that feed `pgEnum(...)`, `z.enum(...)`, and the label functions. Don't hand-write unions that duplicate a `pgEnum` (`src/lib/types/*.ts` is to be migrated).
 - Client files never import runtime values from `#lib/server/**`. `import type` is erased at build and allowed, but prefer `./$types`.
 - Reusable zod primitives (IATA code, flight number, employee no, login ID) live in `src/lib/schemas/primitives.ts` (planned). Service schemas compose them with `.extend()` / `.pick()` / `.omit()`.
 - CRUD write builders return the shape the caller needs via `.returning({...})`, read from the `db.batch` result, not from a follow-up read.
@@ -151,17 +154,21 @@ src/lib/server/errors.ts         AppError + subclasses, failForm() / failNotice(
 src/lib/errors.ts                client-safe frameworkError() / internalError(), shared by both handleError hooks
 src/hooks.client.ts              client handleError;  src/error.html  static fallback for handle/root-layout errors
 src/lib/server/services/         common.ts (Actor, BatchQuery, pgErrorCode); one folder per service with <service>.bl.ts + <service>.crud.ts (§3)
-                                   current flat files users/flights/staff/teams/imports.ts are to be split; assignments, attendance planned
+                                   current flat files users/flights/staff/teams/imports.ts are to be split;
+                                   roster, settings, teams split (bl + crud); planned: assignments, attendance
+src/lib/roster/                  pure, client-safe roster engine: rules, cycle, roster, attendance, overtime + *.test.ts;
+                                   used by the server and by live previews in the browser
 src/lib/components/ui/           shadcn-svelte components (generated; wrap in src/lib/app/ instead of editing, §3)
-src/lib/schemas/                 client-safe zod, one <service>.schema.ts per service (auth.schema.ts done); enums.ts, primitives.ts (planned, §3)
+src/lib/schemas/                 client-safe zod, one <service>.schema.ts per service (auth.schema.ts, settings.schema.ts done); enums.ts (done), primitives.ts (planned, §3)
 src/lib/app/                     app-specific components (layout shell, UserMenu, nav)
 src/routes/(app)/                authenticated area with the top Header; +layout.server.ts requires a session
-src/routes/(dashboard)/          authenticated area with the sidebar: dashboard/, employees/, admin/users/
-  planned: flights/ staff/ teams/ assignments/ attendance/ reports/ imports/
+src/routes/(dashboard)/          authenticated area with the sidebar: dashboard/, employees/, flights/, teams/, imports/, admin/users/
+  teams/[id] (cycle editor, supervisors), employees/[id] (own cycle), admin/settings/; planned: assignments/, attendance/, reports/attendance/
 src/routes/login/                ID number + 6-digit code sign-in;  src/routes/logout/ POST sign-out
 src/routes/api/auth/             JSON token API for a future CSR client: token, refresh, logout, me
 scripts/                         auth CLI (create-admin, issue-code), run with tsx outside SvelteKit
 messages/                        en.json, ar.json
+plans/                           work plans (open work only) + TRACKING.md (checkpoints, dated log); see plans/README.md
 ```
 
 - Route `load` functions and `actions` stay thin. They validate input with the shared schema, call a `*.bl.ts` function, and return `failForm` / `failNotice` on an `AppError`.
@@ -182,18 +189,27 @@ messages/                        en.json, ar.json
 
 These descriptions are **proposed defaults**. The final permission matrix is still to be agreed with the ops team (§10), which is why it lives in the DB (§7).
 
+**Owner decisions (2026-10-27, `plans/ROSTER_PLAN.md`):** shift times, cycles, team moves, overrides, swaps, attendance, absences and overtime approval are **admin only** (`roster.manage`, `attendance.record`, `overtime.approve`, `settings.manage`). Operations managers keep flights, staff, teams, imports, assignments and reports. Supervisors have no account yet; they are staff listed on their teams and get a different job later.
+
 ### Glossary
 
 - **Handling window**: the time span around STA/STD (scheduled arrival/departure) during which assigned staff are busy with a flight.
 - **Staffing requirement**: the headcount required per handling function for one flight.
 - **Assignment**: one staff member on one flight for that flight's handling window. A team assignment expands into individual assignments.
 - **Coverage**: active assignments ÷ required, per function and in total. A flight with coverage < 100% is an **uncovered flight**.
-- **Shift**: scheduled availability of a staff member.
-- **Attendance event**: check-in, check-out, break start, or break end.
-- **Missing staff**: the shift has started and there is no check-in.
+- **Shift**: a 12 h **Day** or **Night** period a staff member is rostered for. Its start times are airport-wide settings the admin enters; a night shift ends the next morning but **belongs to the date it starts** (the shift date).
+- **Shift cycle (pattern)**: a repeating list of 1–28 days, each Day / Night / Off, anchored to a start date (cycle day 1). Belongs to a **team**, or to **one person** (a personal cycle, for admin staff and supervisors). Versioned by effective date, never edited in place.
+- **Roster**: who should work when, **computed** per person and date (absence → override → personal cycle → team cycle), never stored.
+- **Effective date**: the first Damascus date a team move or cycle version applies. Team moves are today or later, never backdated.
+- **Override**: a one-off Day / Night / Off for one person and date, with a reason. A Day / Night on a rostered off day that isn't a swap is an **extra shift**. A **swap** is two people's overrides linked as one action.
+- **Attendance event**: check-in, check-out, break start, or break end. Append-only; a mistake is fixed by a correction event with a reason. An event belongs to the shift whose window runs from 2 h before its start to 7 h after its end.
+- **Worked time**: check-in → check-out; breaks are paid and not subtracted. Under 12 h on a rostered shift is **short**.
+- **Late**: check-in more than 15 min after the shift start.
+- **Missing staff**: the shift has started and there is no check-in or absence.
+- **Overtime**: hours only, per day: worked − 12 h on a rostered shift, all worked time on an extra shift; rounded to the nearest 15 min; categorized Day or Night by the shift. Approved by an admin. More than 18 h worked on one shift date shows a warning.
 - **Available staff**: scheduled − absent − missing − on break.
 
-**MVP workflow:** import flights & staff → review flight schedule → set staffing needs → assign teams & people → record attendance → monitor exceptions & report.
+**MVP workflow:** import flights & staff → set shift times and team cycles → review flight schedule → set staffing needs → assign teams → record attendance → approve overtime → monitor exceptions & report.
 
 ## 6. Non-negotiable rules
 
@@ -220,7 +236,7 @@ These descriptions are **proposed defaults**. The final permission matrix is sti
 
 - `drizzle.config.ts`: `dialect: 'postgresql'`, `strict: true`, schema at `./src/lib/server/db/schema` (split files). `DATABASE_URL_UNPOOLED` or `DATABASE_URL` must be set to run any drizzle-kit command.
 - `src/lib/server/db/index.ts`: `drizzle(neon(DATABASE_URL), { schema })` over **neon-http**.
-- Applied migrations `drizzle/0000`–`0005`: auth / RBAC / audit tables, RBAC seed, `session.client`, code credential columns, `user.issue_code` seed, drop of `must_change_password`. The demo `task` table is gone.
+- Applied migrations `drizzle/0000`–`0011`: auth / RBAC / audit tables, RBAC seed, `session.client`, code credential columns, `user.issue_code` seed, drop of `must_change_password` (`0000`–`0005`); workforce, flights, team assignments and imports with their constraints and seeds (`0006` / `0007`); `staff_team_membership` with its overlap constraint and backfill (`0008` / `0009`); roster, attendance, overtime and settings tables, their `EXCLUDE` constraints and the admin-only roster permissions (`0010` / `0011`). The demo `task` table is gone.
 
 ### neon-http constraints
 
@@ -245,22 +261,26 @@ These descriptions are **proposed defaults**. The final permission matrix is sti
 | ----------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Auth        | `user`, `session`, `login_attempt` | **Built.** `user`: `login_id` (digits, unique), names, `role_id`, `active`, `password_hash` (Argon2 of the 6-digit code), `password_changed_at` / `password_expires_at` (code issued / expires), `failed_login_count`, `locked_at`, `last_login_at`, `created_by`. `session`: `id` = SHA-256 of the token, `client` (`web`/`api`), `expires_at`. `login_attempt`: insert-only rate-limit log (30-day retention)                                 |
 | RBAC        | `role`                             | `key` unique (5 seeded keys from §5), `name_en`, `name_ar`                                                                                                                                                                                                                                                                                                                                                                                      |
-|             | `permission`                       | `key` unique: `flight.read`, `flight.write`, `assignment.write`, `attendance.record`, `staff.write`, `import.run`, `report.read`, `user.manage`, `user.manage_operational`, `user.issue_code`, `settings.manage`, `audit.read` (seeded)                                                                                                                                                                                                         |
+|             | `permission`                       | `key` unique: `flight.read`, `flight.write`, `assignment.write`, `attendance.record`, `staff.write`, `import.run`, `report.read`, `user.manage`, `user.manage_operational`, `user.issue_code`, `settings.manage`, `audit.read` (seeded); planned `roster.manage`, `overtime.approve` (admin only; `attendance.record` also becomes admin only)                                                                                                  |
 |             | `role_permission`                  | PK (`role_id`, `permission_id`)                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | Workforce   | `staff_function`                   | Configurable lookup (ramp, baggage, check-in, gate…): `key`, `name_en`, `name_ar`                                                                                                                                                                                                                                                                                                                                                               |
-|             | `team`                             | `name`, `supervisor_staff_id` → `staff`, `active`                                                                                                                                                                                                                                                                                                                                                                                               |
-|             | `staff`                            | `employee_no` unique, `full_name`, `full_name_ar`, `phone`, `function_id`, `team_id`, `user_id` nullable unique, `active`, `odoo_id` nullable unique                                                                                                                                                                                                                                                                                            |
-|             | `shift`                            | `staff_id`, `starts_at`, `ends_at`, `status`, check `ends_at > starts_at`. Manual/imported in the MVP, generated in Phase 4                                                                                                                                                                                                                                                                                                                     |
+|             | `team`                             | `name_en` unique, `name_ar`, `active`                                                                                                                                                                                                                                                                                                                                                                                                           |
+|             | `team_supervisor`                  | Planned. `team_id`, `staff_id`, `added_by` / `added_at`, `removed_by` / `removed_at`; partial unique (`team_id`, `staff_id`) while not removed. Information only until supervisor accounts                                                                                                                                                                                                                                                      |
+|             | `staff`                            | `employee_no` unique, `full_name`, `full_name_ar`, `phone`, `function_id`, `team_id` (dropped once `staff_team_membership` is the only reader), `user_id` nullable unique, `active`, `odoo_id` nullable unique                                                                                                                                                                                                                                  |
+|             | `staff_team_membership`            | **Built.** `staff_id`, `team_id`, `valid_from`, `valid_to` null = open; EXCLUDE overlap per staff member. Becomes the **source of truth** for "which team, when"; `valid_from` may be a future effective date (00:00 Damascus)                                                                                                                                                                                                                  |
+| Roster      | `shift_pattern`                    | Planned. `team_id` **or** `staff_id` (exactly one), `cycle shift_kind[]` (1–28, at least one non-`off`), `anchor_date`, `day_start` / `night_start` `time` (copied from `app_setting`; shifts are 12 h), `effective_from` / `effective_to` dates, `reason`, `created_by`. EXCLUDE overlapping versions per team and per person                                                                                                                  |
+|             | `roster_override`                  | Planned. `staff_id`, `shift_date`, `kind shift_kind`, `reason`, `swap_group_id` nullable, `created_by`, `cancelled_by` / `cancelled_at`; partial unique (`staff_id`, `shift_date`) while not cancelled                                                                                                                                                                                                                                          |
+|             | `overtime_approval`                | Planned. `staff_id`, `shift_date`, `shift_kind`, approved `minutes`, `approved_by` / `approved_at`, `revoked_by` / `revoked_at`; partial unique (`staff_id`, `shift_date`) while not revoked                                                                                                                                                                                                                                                    |
 | Flights     | `flight`                           | `airline_code`, `flight_no`, `direction` enum (`arrival`/`departure`), `origin`, `destination` (IATA), `scheduled_at`, `estimated_at`, `actual_at`, `status` enum (`scheduled`/`delayed`/`boarding`/`departed`/`arrived`/`cancelled`/`diverted`), `stand`, `gate`, `aircraft_type`, `handling_starts_at`, `handling_ends_at`, `source` enum (`manual`/`import`/`feed`), `external_ref`. Unique (`source`, `external_ref`); index `scheduled_at` |
 |             | `handling_window_rule`             | `direction`, optional `aircraft_category`, `minutes_before`, `minutes_after`. Computes the default window; per-flight overrides are audited                                                                                                                                                                                                                                                                                                     |
 |             | `flight_staffing_requirement`      | `flight_id`, `function_id`, `required_count` (> 0); unique (`flight_id`, `function_id`)                                                                                                                                                                                                                                                                                                                                                         |
 | Assignments | `assignment`                       | `flight_id`, `staff_id`, `team_id` nullable, `starts_at`, `ends_at` (copied from the handling window), `status` enum (`assigned`/`cancelled`/`completed`), `assigned_by`, `override_reason`. Indexes `flight_id`, (`staff_id`, `starts_at`)                                                                                                                                                                                                     |
-| Attendance  | `attendance_event`                 | **Append-only**: `staff_id`, `shift_id` nullable, `type` enum (`check_in`/`check_out`/`break_start`/`break_end`), `occurred_at`, `recorded_by`, `note`. Index (`staff_id`, `occurred_at`). Corrections are new events with a reason, never edits                                                                                                                                                                                                |
-|             | `absence`                          | `staff_id`, `starts_at`, `ends_at`, `type` enum (`sick`/`leave`/`no_show`/`other`), `reason`, `recorded_by`                                                                                                                                                                                                                                                                                                                                     |
+| Attendance  | `attendance_event`                 | **Append-only**: `staff_id`, `type` enum (`check_in`/`check_out`/`break_start`/`break_end`), `occurred_at`, `shift_date` + `shift_kind` + `team_id` (the shift it was counted for, so reports never move), `recorded_by`, `note`, `corrects_event_id` nullable, `reason` (required on corrections). Indexes (`staff_id`, `occurred_at`), (`team_id`, `shift_date`). Corrections are new events, never edits                                     |
+|             | `absence`                          | `staff_id`, `starts_on` / `ends_on` **dates** (Damascus, inclusive; rosters are day-granular), `type` enum (`sick`/`leave`/`no_show`/`other`), `reason`, `recorded_by`, `cancelled_at` nullable                                                                                                                                                                                                                                                 |
 | Imports     | `import_batch`                     | `kind` (`staff`/`flights`), `file_name`, `status` enum (`previewed`/`committed`/`failed`), `created_by`, row counts                                                                                                                                                                                                                                                                                                                             |
 |             | `import_row`                       | `batch_id`, `row_no`, `raw` jsonb, `parsed` jsonb, `errors` jsonb, `action` (`create`/`update`/`skip`), `target_id`. Drives import preview and Odoo reconciliation                                                                                                                                                                                                                                                                              |
 | Audit       | `audit_log`                        | **Insert-only**: `actor_user_id`, `action`, `entity_type`, `entity_id`, `before` jsonb, `after` jsonb, `reason`, `created_at`. Indexes (`entity_type`, `entity_id`), `created_at`                                                                                                                                                                                                                                                               |
-| Settings    | `app_setting`                      | `key` PK, `value` jsonb                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Settings    | `app_setting`                      | Planned. `key` PK (`$type<SettingKey>()`), `value` jsonb (`$type` per key), `updated_by`, `updated_at`. First key `roster.shift_starts` `{ day, night }` (`HH:mm`, Damascus), entered by the admin; changes audited                                                                                                                                                                                                                             |
 
 ### Required custom migrations
 
@@ -276,17 +296,19 @@ These descriptions are **proposed defaults**. The final permission matrix is sti
 ### Derived data (computed at query time in the MVP, not stored)
 
 - Coverage per flight comes from requirements vs. active assignments.
-- Missing staff are shifts with `starts_at <= now()` and no `check_in` event.
-- Scheduled vs. available comes from shifts − absences − missing − on break.
+- Each person's roster per date comes from the `src/lib/roster/` engine: memberships + cycle versions + overrides + absences. Nothing is generated or stored, so nothing needs regenerating when cycles or teams change.
+- Missing staff are rostered shifts that have started with no `check_in` event and no absence.
+- Worked minutes, short, late, overtime (rounded, Day / Night) and "changed since approval" come from the engine over the attendance events.
+- Scheduled vs. available comes from the roster − absences − missing − on break.
 - Add an `operational_alert` table only once alerts need acknowledgement or escalation.
 
 ### Phase 4+ (do not build yet)
 
-`roster_pattern` (recurring / 12-on-24-off), `flight_feed_sync`, overtime calculations, forecasting tables.
+Team alignment / staggering, supervisor accounts and scope, public holidays, overtime export and period locking, `flight_feed_sync`, forecasting tables.
 
-## 8. Authentication (built — details and history in `AUTH_PLAN.md`)
+## 8. Authentication (built — history in `plans/TRACKING.md`)
 
-Hand-rolled, no auth library. Change it only together with `AUTH_PLAN.md`.
+Hand-rolled, no auth library. The auth plan is complete; its full text is `git show e47a970:AUTH_PLAN.md`. A change to auth gets a new plan in `plans/` first.
 
 - **Who signs in:** only `admin` and `operations_manager` accounts (`ACCOUNT_ROLES`). Employees have no accounts; the employee scopes (`EMPLOYEE_ROLES`, `user.issue_code`, `user.manage_operational`) are dormant.
 - **Credential:** ID number + a **6-digit code** issued by an admin at `/admin/users` (or `pnpm auth:issue-code`). Codes are random, shown once, Argon2id-hashed, expire (default 7 days), and can't be changed by their holder. There is no password and no change-password page.
@@ -309,16 +331,18 @@ Hand-rolled, no auth library. Change it only together with `AUTH_PLAN.md`.
 - The list of handling functions and required headcount defaults per aircraft type.
 - Handling-window minutes before/after STA/STD per direction and aircraft category.
 - Assignment conflict rules: is a minimum rest or travel buffer between consecutive flights required?
-- Shift and break policy (max hours, break lengths).
 - Odoo export formats and field mapping for staff and flights.
 - Pilot period date range and which flights are in scope.
+
+Resolved (2026-10-27, `plans/ROSTER_PLAN.md` Decisions): shift policy (12 h Day / Night, times entered by the admin), break policy (breaks paid, no limit), late grace (15 min), minimum rest between shifts (not checked), overtime rules, who records attendance (admin only).
 
 ## 11. MVP acceptance checklist
 
 - [ ] All pilot-period flights are imported and reconciled against the source.
 - [ ] Users only perform actions allowed by their assigned permissions.
 - [ ] Overlapping staff assignments are rejected by the backend.
-- [ ] Supervisors can record attendance and identify missing staff.
+- [ ] The admin can record attendance and identify missing staff (supervisors later).
+- [ ] Rosters follow each team's and person's cycle, and overtime per day matches the attendance records.
 - [ ] Dispatchers can identify uncovered flights and update assignments.
 - [ ] Flight changes and manual overrides are audited.
 - [ ] Daily reports reconcile with flight, assignment, and attendance records.

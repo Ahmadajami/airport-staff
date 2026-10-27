@@ -5,9 +5,18 @@ import { m } from '#lib/paraglide/messages.js';
 import { failForm, failNotice } from '#lib/server/errors.js';
 import { requirePermission } from '#lib/server/rbac/guard.js';
 import type { Actor } from '#lib/server/services/common.js';
-import { createTeam, listTeams, renameTeam, setTeamActive } from '#lib/server/services/teams.js';
+import {
+	createTeam,
+	listTeams,
+	renameTeam,
+	setTeamActive
+} from '#lib/server/services/teams/teams.bl.js';
 import { teamName } from '#lib/utils/locale.js';
-import { setTeamActiveSchema, teamFormSchema, type TeamMessage } from './schema.js';
+import {
+	setTeamActiveSchema,
+	teamFormSchema,
+	type TeamMessage
+} from '#lib/schemas/teams.schema.js';
 import type { Actions, PageServerLoad } from './$types';
 
 function actorFrom(locals: App.Locals): Actor {
