@@ -14,8 +14,12 @@
 	import StaffFormSheet from './StaffFormSheet.svelte';
 	import TeamTable from './TeamTable.svelte';
 	import { ALL_EMPLOYEES, employeeName } from './labels.js';
+	import { setPersonalPatternIds } from './context.js';
 
 	let { data }: PageProps = $props();
+
+	const personalPatternIds = $derived(new Set(data.personalPatternIds));
+	setPersonalPatternIds(() => personalPatternIds);
 
 	let teamOverrides = $state<Record<string, TeamOption | null>>({});
 	let formOpen = $state(false);

@@ -9,7 +9,7 @@
 	import * as Sheet from '#lib/components/ui/sheet/index.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { endSide } from '#lib/utils/locale.js';
-	import { teamFormSchema, type TeamMessage } from './schema.js';
+	import { teamFormSchema, type TeamMessage } from '#lib/schemas/teams.schema.js';
 
 	type Target = { id: string; nameEn: string; nameAr: string };
 

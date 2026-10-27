@@ -6,7 +6,8 @@ landed. Start the next phase only after the previous checkpoint is verified, rec
 checkpoint, and commit once per phase.
 
 **Status:** RA ✅ (`38cdfc7`) · RB ✅ (`bd491ac`; migrations `0010` / `0011` applied to the `.env` Neon
-database 2026-10-27) · RC ✅ (2026-10-27) · RD–RI ⏳. Baseline: `main` at `8b98ca2` (PR #1, the operations core, on staging). `OPERATIONS_PLAN.md` Checkpoint D (upload &
+database 2026-10-27) · RC ✅ (`863e7ea`) · **RD built, checkpoint pending** (browser check in EN + AR)
+· RE–RI ⏳. Baseline: `main` at `8b98ca2` (PR #1, the operations core, on staging). `OPERATIONS_PLAN.md` Checkpoint D (upload &
 import) is paused until this lands; its Phase X fixes can continue alongside.
 
 ## Goal
@@ -177,11 +178,13 @@ covering every case above. Engine rules worth knowing for RD–RG:
 - **Overtime** is computed only once checked out; an absence day with events counts as unscheduled.
 - RC4 (rest gap) was dropped with the minimum-rest rule, so the old RC5 / RC6 numbering moved up.
 
-## Phase RD — Settings, patterns & supervisors list (server + UI) ⏳
+## Phase RD — Settings, patterns & supervisors list (server + UI) ⏳ built, checkpoint pending
 
 Services follow CLAUDE.md §3: `services/settings/settings.{bl,crud}.ts`,
 `services/roster/roster.{bl,crud}.ts`; team supervisor functions in `services/teams/teams.{bl,crud}.ts`
 (this phase does OPERATIONS X17 for teams if it hasn't landed).
+
+Steps are ticked when Checkpoint RD passes; all seven are built.
 
 - [ ] **RD1** `/admin/settings` (`settings.manage`): Day start and Night start (ends shown as +12 h);
       audited.
@@ -203,6 +206,36 @@ Monday; another copies it; a supervisor gets a personal pattern that overrides t
 preview; the preview matches the cycle by hand; a pattern change from a future date leaves earlier days
 unchanged; changing the shift times afterwards leaves existing versions unchanged; settings, patterns
 and supervisors are audited; EN + AR.
+
+_Built (2026-10-27), as implemented:_
+
+- **Services:** `settings.{bl,crud}` (`loadShiftStarts` validates the stored jsonb with the zod
+  schema), `roster.{bl,crud}`, and teams split into `teams.{bl,crud}` (OPERATIONS X17). Supervisor
+  functions live in the roster service (they need `roster.manage`, not `staff.write`).
+- **Saving a version:** the effective date must be today or later. `src/lib/roster/versions.ts`
+  (tested) decides what changes: the version in force on that date is closed there, and versions that
+  start on or after it are **deleted**. They are scheduled changes that never took effect, so no
+  history is lost; the audit row keeps them (`before`). The batch is audit → deletes → close → insert,
+  and a `23P01` from a concurrent save becomes a 409. Shift times are copied from settings; saving is
+  refused until they are set.
+- **Personal cycles** can also be **ended** from a date (`endPersonalPattern`), after which the person
+  follows their team again.
+- **Pages:** `/admin/settings` (admin; nav entry). `/teams/[id]` (`staff.write` to view; editor,
+  supervisors and copy-from only with `roster.manage`): cycle editor, live preview, supervisors,
+  members in the window with join / leave dates, history. `/employees/[id]`: own cycle editor, end
+  form, history, one-row preview. Teams list: cycle letters, supervisors, name links to the team.
+  Employees list: names link to the person; "Own cycle" badge.
+- **Editor:** `#lib/app/roster/CycleEditor.svelte` (click, drag to paint, keys D / N / O, length
+  1–28), inside `PatternForm.svelte` (Superforms; the cycle posts as repeated hidden `cycle` inputs).
+  "Copy from a team" offers every team's cycle in force today.
+- **Preview:** 4 weeks from `?from=` (a GET form steps by 4 weeks), computed in the browser from the
+  saved data plus the unsaved draft (`#lib/app/roster/preview.ts`). Days on which a member is in
+  another team are greyed out on the team page; overrides and extra shifts carry `*`; absences show A.
+- 101 message keys in EN + AR. `pnpm check` 0 errors, ESLint and Prettier clean on the 36 changed files,
+  63 tests, `pnpm build` ok, no server code in the client bundle. Svelte autofixer clean on every new
+  or changed component (its only suggestion, an attachment instead of `use:enhance`, doesn't apply to
+  Superforms).
+- **Not verified yet:** the checkpoint itself in a browser (needs a signed-in admin), EN + AR.
 
 ## Phase RE — Team moves with an effective date ⏳
 

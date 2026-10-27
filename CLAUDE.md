@@ -155,7 +155,7 @@ src/lib/errors.ts                client-safe frameworkError() / internalError(),
 src/hooks.client.ts              client handleError;  src/error.html  static fallback for handle/root-layout errors
 src/lib/server/services/         common.ts (Actor, BatchQuery, pgErrorCode); one folder per service with <service>.bl.ts + <service>.crud.ts (§3)
                                    current flat files users/flights/staff/teams/imports.ts are to be split;
-                                   planned: assignments, roster, attendance, settings
+                                   roster, settings, teams split (bl + crud); planned: assignments, attendance
 src/lib/roster/                  pure, client-safe roster engine: rules, cycle, roster, attendance, overtime + *.test.ts;
                                    used by the server and by live previews in the browser
 src/lib/components/ui/           shadcn-svelte components (generated; wrap in src/lib/app/ instead of editing, §3)
@@ -163,7 +163,7 @@ src/lib/schemas/                 client-safe zod, one <service>.schema.ts per se
 src/lib/app/                     app-specific components (layout shell, UserMenu, nav)
 src/routes/(app)/                authenticated area with the top Header; +layout.server.ts requires a session
 src/routes/(dashboard)/          authenticated area with the sidebar: dashboard/, employees/, flights/, teams/, imports/, admin/users/
-  planned: teams/[id] (members, cycle editor), assignments/, attendance/, reports/attendance/, admin/settings/
+  teams/[id] (cycle editor, supervisors), employees/[id] (own cycle), admin/settings/; planned: assignments/, attendance/, reports/attendance/
 src/routes/login/                ID number + 6-digit code sign-in;  src/routes/logout/ POST sign-out
 src/routes/api/auth/             JSON token API for a future CSR client: token, refresh, logout, me
 scripts/                         auth CLI (create-admin, issue-code), run with tsx outside SvelteKit

@@ -247,9 +247,10 @@ tstzrange(valid_from, valid_to, '[)') WITH &&)` so a person is in one team at a 
 
 ### Rules alignment (CLAUDE.md §3, added 2026-10-26)
 
-- [ ] **X17** Split `services/teams.ts` into `services/teams/teams.crud.ts` + `teams.bl.ts`: CRUD holds
+- [x] **X17** Split `services/teams.ts` into `services/teams/teams.crud.ts` + `teams.bl.ts`: CRUD holds
       only the queries the BL calls; write builders return `BatchQuery`; row types derived from the
-      queries; explicit BL return types.
+      queries; explicit BL return types. (Done with ROSTER_PLAN RD, 2026-10-27; the teams schema moved
+      to `src/lib/schemas/teams.schema.ts` too, the teams part of X22.)
 - [ ] **X18** Same split for `services/staff.ts`; remove `StaffRow` / `TeamOption` /
       `StaffFunctionOption` from `src/lib/types/workforce.ts`.
 - [ ] **X19** Same split for `services/flights.ts`; remove `src/lib/types/flights.ts`.
