@@ -156,7 +156,7 @@ src/hooks.client.ts              client handleError;  src/error.html  static fal
 src/lib/server/services/         common.ts (Actor, BatchQuery, pgErrorCode); one folder per service with <service>.bl.ts + <service>.crud.ts (§3)
                                    current flat files users/flights/staff/teams/imports.ts are to be split;
                                    planned: assignments, roster, attendance, settings
-src/lib/roster/                  planned: pure, client-safe roster engine (cycle, roster, attendance, overtime) + *.test.ts;
+src/lib/roster/                  pure, client-safe roster engine: rules, cycle, roster, attendance, overtime + *.test.ts;
                                    used by the server and by live previews in the browser
 src/lib/components/ui/           shadcn-svelte components (generated; wrap in src/lib/app/ instead of editing, §3)
 src/lib/schemas/                 client-safe zod, one <service>.schema.ts per service (auth.schema.ts, settings.schema.ts done); enums.ts (done), primitives.ts (planned, §3)

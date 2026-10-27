@@ -5,8 +5,8 @@ made. Each step has an ID (`RB3`, `RG2`, …) so commits and reviews can point a
 landed. Start the next phase only after the previous checkpoint is verified, record the result under the
 checkpoint, and commit once per phase.
 
-**Status:** RA ✅ (`38cdfc7`) · RB ✅ (2026-10-27; migrations `0010` / `0011` applied to the `.env` Neon
-database) · RC–RI ⏳. Baseline: `main` at `8b98ca2` (PR #1, the operations core, on staging). `OPERATIONS_PLAN.md` Checkpoint D (upload &
+**Status:** RA ✅ (`38cdfc7`) · RB ✅ (`bd491ac`; migrations `0010` / `0011` applied to the `.env` Neon
+database 2026-10-27) · RC ✅ (2026-10-27) · RD–RI ⏳. Baseline: `main` at `8b98ca2` (PR #1, the operations core, on staging). `OPERATIONS_PLAN.md` Checkpoint D (upload &
 import) is paused until this lands; its Phase X fixes can continue alongside.
 
 ## Goal
@@ -136,22 +136,22 @@ an end day) → `23P01`, a cancelled one doesn't block. `role_permission`: `atte
 `roster.manage`, `overtime.approve` → `admin` only. No test rows left behind. `pnpm check`: 0 errors;
 `pnpm test` green; `pnpm db:generate` reports no drift.
 
-## Phase RC — Roster engine (pure, tested) ⏳
+## Phase RC — Roster engine (pure, tested) ✅
 
-- [ ] **RC1** `src/lib/roster/cycle.ts`: cycle day for a date (`(date − anchor) mod N`, also before the
+- [x] **RC1** `src/lib/roster/cycle.ts`: cycle day for a date (`(date − anchor) mod N`, also before the
       anchor), the 12 h shift window for a date and kind in Damascus (night crosses midnight; via
       `@internationalized/date`).
-- [ ] **RC2** `src/lib/roster/roster.ts`: `rosterDay` / `rosterRange` from memberships, team and personal
+- [x] **RC2** `src/lib/roster/roster.ts`: `rosterDay` / `rosterRange` from memberships, team and personal
       pattern versions, overrides and absences. Precedence: absence → override → personal pattern →
       team pattern. Per person per date it returns the team, the kind, the start and end instants and the
       source (personal / team pattern or override).
-- [ ] **RC3** `src/lib/roster/attendance.ts`: attribute an event to a shift (2 h before start to 7 h after
+- [x] **RC3** `src/lib/roster/attendance.ts`: attribute an event to a shift (2 h before start to 7 h after
       end), status of a shift from its events, worked minutes (breaks included), short, late (> 15 min).
-- [ ] **RC4** `src/lib/roster/overtime.ts`: per person per day, overtime = worked − 720 when positive on a
+- [x] **RC4** `src/lib/roster/overtime.ts`: per person per day, overtime = worked − 720 when positive on a
       rostered shift, or all worked minutes on an extra shift / unscheduled day; rounded to the nearest
       15 min (half up); Day / Night from the shift kind; the over-18 h warning; approval state (none /
       approved / changed since approval). Formatting as decimal hours and `h:mm`.
-- [ ] **RC5** Unit tests: 3-, 4-, 7- and 8-day cycles, dates before the anchor, night across midnight and
+- [x] **RC5** Unit tests: 3-, 4-, 7- and 8-day cycles, dates before the anchor, night across midnight and
       month end, pattern version change mid-cycle, team move mid-cycle, personal pattern over team
       pattern, swap groups, override and absence precedence, attribution at window edges, breaks
       counted as worked, late at 15 / 16 min, short; overtime at exactly 12 h, 12 h 07 m (0), 12 h 08 m
@@ -159,6 +159,23 @@ an end day) → `23P01`, a cancelled one doesn't block. `role_permission`: `atte
       (0), the 18 h warning, an approval that no longer matches.
 
 **Checkpoint RC:** `pnpm test` green; the cases above covered.
+
+_Result (2026-10-27):_ `src/lib/roster/` holds `rules.ts` (every rule constant), `cycle.ts`, `roster.ts`,
+`attendance.ts`, `overtime.ts`, client-safe (types only from the DB schema). 58 tests in 5 files pass,
+covering every case above. Engine rules worth knowing for RD–RG:
+
+- **Team on a date** = the membership open at 00:00 Damascus that day; a night that starts the evening
+  before a move stays with the old team.
+- **Attribution:** rostered shifts are tried first, then the airport Day / Night of the surrounding days
+  (unscheduled); among fits, a check-in goes to the nearest start, a check-out to the nearest end, a
+  break to the shift it falls in. A check-out or break stays with the open check-in's shift while in
+  its window. The caller passes the roster days before, on and after the event's date.
+- **Corrections:** a corrected event is dropped and its correction used (`effectiveEvents`).
+- **Status:** expected until 15 min after the start, then missing; present / late (over 15 min) /
+  on break while checked in; done once checked out; an absence with no events is absent.
+- **Worked time** is whole minutes (seconds dropped), summed over check-in → check-out pairs.
+- **Overtime** is computed only once checked out; an absence day with events counts as unscheduled.
+- RC4 (rest gap) was dropped with the minimum-rest rule, so the old RC5 / RC6 numbering moved up.
 
 ## Phase RD — Settings, patterns & supervisors list (server + UI) ⏳
 
