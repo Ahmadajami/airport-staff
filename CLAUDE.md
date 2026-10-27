@@ -7,7 +7,7 @@
 - **Not general HR**: no payroll, leave balances, recruitment, or performance reviews.
 - Pilot runs alongside Odoo; cutover only after the acceptance checklist (§11) passes, including tested backups/recovery.
 - MVP = Phases 1–3 below. Phases 4–5 must not be built early.
-- **Owner decision (2026-10-26):** recurring shift cycles and overtime **hours** moved from Phase 4 into the MVP, because attendance needs to know who should be working. The plan and every decision behind it are in `ROSTER_PLAN.md`.
+- **Owner decision (2026-10-26):** recurring shift cycles and overtime **hours** moved from Phase 4 into the MVP, because attendance needs to know who should be working. The plan and every decision behind it are in `plans/ROSTER_PLAN.md`.
 
 | Phase                              | Scope                                                                                                                                                                                             | Priority |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
@@ -36,7 +36,7 @@ pnpm auth:issue-code <id> [--days 1|7|30]          # recovery: new code, clears 
 
 - **Do not use `pnpm db:push`** once migrations exist. It bypasses custom SQL migrations (exclusion constraints, seeds; see §7).
 - Run `pnpm check`, `pnpm lint` and `pnpm test` before declaring work done.
-- **Tests (Vitest):** pure logic only (the roster engine `src/lib/roster/`, time and parsing helpers), in a `<name>.test.ts` beside the file it tests, Node environment, no database. Every rule in `ROSTER_PLAN.md` that the engine implements gets a test case, including its edges.
+- **Tests (Vitest):** pure logic only (the roster engine `src/lib/roster/`, time and parsing helpers), in a `<name>.test.ts` beside the file it tests, Node environment, no database. Every rule in `plans/ROSTER_PLAN.md` that the engine implements gets a test case, including its edges.
 
 ## 3. Stack & conventions (non-default — read carefully)
 
@@ -168,6 +168,7 @@ src/routes/login/                ID number + 6-digit code sign-in;  src/routes/l
 src/routes/api/auth/             JSON token API for a future CSR client: token, refresh, logout, me
 scripts/                         auth CLI (create-admin, issue-code), run with tsx outside SvelteKit
 messages/                        en.json, ar.json
+plans/                           work plans (open work only) + TRACKING.md (checkpoints, dated log); see plans/README.md
 ```
 
 - Route `load` functions and `actions` stay thin. They validate input with the shared schema, call a `*.bl.ts` function, and return `failForm` / `failNotice` on an `AppError`.
@@ -188,7 +189,7 @@ messages/                        en.json, ar.json
 
 These descriptions are **proposed defaults**. The final permission matrix is still to be agreed with the ops team (§10), which is why it lives in the DB (§7).
 
-**Owner decisions (2026-10-27, `ROSTER_PLAN.md`):** shift times, cycles, team moves, overrides, swaps, attendance, absences and overtime approval are **admin only** (`roster.manage`, `attendance.record`, `overtime.approve`, `settings.manage`). Operations managers keep flights, staff, teams, imports, assignments and reports. Supervisors have no account yet; they are staff listed on their teams and get a different job later.
+**Owner decisions (2026-10-27, `plans/ROSTER_PLAN.md`):** shift times, cycles, team moves, overrides, swaps, attendance, absences and overtime approval are **admin only** (`roster.manage`, `attendance.record`, `overtime.approve`, `settings.manage`). Operations managers keep flights, staff, teams, imports, assignments and reports. Supervisors have no account yet; they are staff listed on their teams and get a different job later.
 
 ### Glossary
 
@@ -305,9 +306,9 @@ These descriptions are **proposed defaults**. The final permission matrix is sti
 
 Team alignment / staggering, supervisor accounts and scope, public holidays, overtime export and period locking, `flight_feed_sync`, forecasting tables.
 
-## 8. Authentication (built — details and history in `AUTH_PLAN.md`)
+## 8. Authentication (built — history in `plans/TRACKING.md`)
 
-Hand-rolled, no auth library. Change it only together with `AUTH_PLAN.md`.
+Hand-rolled, no auth library. The auth plan is complete; its full text is `git show e47a970:AUTH_PLAN.md`. A change to auth gets a new plan in `plans/` first.
 
 - **Who signs in:** only `admin` and `operations_manager` accounts (`ACCOUNT_ROLES`). Employees have no accounts; the employee scopes (`EMPLOYEE_ROLES`, `user.issue_code`, `user.manage_operational`) are dormant.
 - **Credential:** ID number + a **6-digit code** issued by an admin at `/admin/users` (or `pnpm auth:issue-code`). Codes are random, shown once, Argon2id-hashed, expire (default 7 days), and can't be changed by their holder. There is no password and no change-password page.
@@ -333,7 +334,7 @@ Hand-rolled, no auth library. Change it only together with `AUTH_PLAN.md`.
 - Odoo export formats and field mapping for staff and flights.
 - Pilot period date range and which flights are in scope.
 
-Resolved (2026-10-27, `ROSTER_PLAN.md` Decisions): shift policy (12 h Day / Night, times entered by the admin), break policy (breaks paid, no limit), late grace (15 min), minimum rest between shifts (not checked), overtime rules, who records attendance (admin only).
+Resolved (2026-10-27, `plans/ROSTER_PLAN.md` Decisions): shift policy (12 h Day / Night, times entered by the admin), break policy (breaks paid, no limit), late grace (15 min), minimum rest between shifts (not checked), overtime rules, who records attendance (admin only).
 
 ## 11. MVP acceptance checklist
 
